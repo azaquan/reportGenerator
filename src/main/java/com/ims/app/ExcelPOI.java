@@ -16,11 +16,6 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.hssf.model.Sheet;
 import org.apache.poi.hssf.usermodel.*;
 
-/**
-* @author Praveen John
-*
-*/
-
 public class ExcelPOI{
    private ResultSet result = null;
 
@@ -30,35 +25,45 @@ public class ExcelPOI{
    public void createReport(ResultSet r) throws IOException {
       result=r;
       int j=0;
+      File file = null;
+      InputStream fileinput = null;
+      HSSFWorkbook workbook = null;
+      HSSFSheet sheet = null;
       try{
-         //File Operation - Open the excel template
-         File file = new File("sampleExcel.xls");
-         InputStream fileinput= new FileInputStream(file);
-
-         HSSFWorkbook workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
-         HSSFSheet sheet = workbook.getSheetAt(0); //Get 1st Sheet
-
-         //Iterate through the ResultSet and update the Excel report
-
-         while(result.next())
-         {
-            HSSFRow row = sheet.createRow(j+1); //first row is header
-            for(int i=1;i<=6;i++) // Update 6 columns mentioned in screen shot
-           {
-             HSSFCell cell = row.createCell(0);
-             cell.setCellValue(result.getString(i));//set value for each cell
-           }
-           j=j+1;
-          }
-         //Save data
-         FileOutputStream fileOut = new FileOutputStream("incident_result.xls");
-         workbook.write(fileOut);
-         fileOut.close();
+         String path = System.getProperty("java.class.path"); //TODO
+         file = new File("target/templates/sampleExcel.xls");
+         fileinput= new FileInputStream(file);
+      }catch(IOException e){
+          System.out.println(e);
       }
-      catch(Exception ex)
-      {
-          //Print exception to standard output
-          System.out.println(ex);
+
+      if(fileinput!=null){
+         try{
+            workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
+            sheet = workbook.getSheetAt(0);
+         }catch(Exception e){
+            System.out.println(e);
+         }
+
+         try{
+            while(result.next()){
+               HSSFRow row = sheet.createRow(j+1);
+               for(int i=0;i<=result.getMetaData().getColumnCount()-1;i++){
+                  HSSFCell cell = row.createCell(i);
+                  cell.setCellValue(result.getString(i+1));
+               }
+               j=j+1;
+             }
+         }catch(SQLException e){
+          System.out.println(e);
+         }
+         try{
+            FileOutputStream fileOut = new FileOutputStream("target/templates/incident_result.xls");
+            workbook.write(fileOut);
+            fileOut.close();
+         }catch(IOException e){
+             System.out.println(e);
+         }
       }
    }
 }

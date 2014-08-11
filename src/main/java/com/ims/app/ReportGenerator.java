@@ -1,6 +1,7 @@
 package com.ims.app;
 
 import java.sql.*;
+import java.io.IOException;
 
 public class ReportGenerator{
    private Connection conn = null;
@@ -48,15 +49,17 @@ public class ReportGenerator{
 	public void generateReport(String query){
 	   ResultSet result = DbUtils.getResultSet(conn,query);
       if(result==null){
-         System.out.println("Query did not get any value");
+         System.out.println("Nothing got from: "+query);
       }else{
          ExcelPOI excel = new ExcelPOI();
-         excel.createReport(result);
          try{
+            excel.createReport(result);
             while(result.next()){
 
             }
          }catch(SQLException e){
+            System.out.println("generateReport error: "+e.getMessage());
+         }catch(IOException e){
             System.out.println("generateReport error: "+e.getMessage());
          }
       }

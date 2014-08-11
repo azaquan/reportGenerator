@@ -1,0 +1,19 @@
+#################
+## Jedit
+#################
+
+.project
+.metadata
+.gradle
+bin/
+tmp/
+target/*
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.classpath
+.settings/
+.loadpath
+*.xls
