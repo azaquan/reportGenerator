@@ -18,8 +18,11 @@ import org.apache.poi.hssf.usermodel.*;
 
 public class ExcelPOI{
    private ResultSet result = null;
+   public String path;
 
-   public void ExcelPOI(){
+
+   public ExcelPOI(String p){
+      path=p;
    }
 
    public void createReport(ResultSet r) throws IOException {
@@ -30,22 +33,12 @@ public class ExcelPOI{
       HSSFWorkbook workbook = null;
       HSSFSheet sheet = null;
       try{
-         String path = System.getProperty("java.class.path"); //TODO
-         file = new File("target/templates/sampleExcel.xls");
+         file = new File(path+"templates/sampleExcel.xls");
          fileinput= new FileInputStream(file);
-      }catch(IOException e){
-          System.out.println(e);
-      }
 
-      if(fileinput!=null){
-         try{
+         if(fileinput!=null){
             workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
             sheet = workbook.getSheetAt(0);
-         }catch(Exception e){
-            System.out.println(e);
-         }
-
-         try{
             while(result.next()){
                HSSFRow row = sheet.createRow(j+1);
                for(int i=0;i<=result.getMetaData().getColumnCount()-1;i++){
@@ -53,17 +46,13 @@ public class ExcelPOI{
                   cell.setCellValue(result.getString(i+1));
                }
                j=j+1;
-             }
-         }catch(SQLException e){
-          System.out.println(e);
-         }
-         try{
-            FileOutputStream fileOut = new FileOutputStream("target/templates/incident_result.xls");
+            }
+            FileOutputStream fileOut = new FileOutputStream(path+"templates/incident_result.xls");
             workbook.write(fileOut);
             fileOut.close();
-         }catch(IOException e){
-             System.out.println(e);
          }
+      }catch(Exception e){
+          System.out.println(e);
       }
    }
 }
