@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import java.sql.*;
+import java.util.Properties;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -17,25 +18,30 @@ import org.apache.poi.hssf.model.Sheet;
 import org.apache.poi.hssf.usermodel.*;
 
 public class ExcelPOI{
-   private ResultSet result = null;
-   public String path;
+   private String path;
+   private String reportName;
+   private String template;
+   private Properties props;
 
-
-   public ExcelPOI(String p){
-      path=p;
+   public ExcelPOI(String rPath, String rName, String rTemplate, Properties rProperties){
+      path=rPath;
+      reportName=rName;
+      template=rTemplate;
+      props = rProperties;
    }
 
-   public void createReport(ResultSet r) throws IOException {
-      result=r;
+   public boolean createReport(ResultSet result) throws IOException {
+      boolean created = false;
       int j=0;
       File file = null;
       InputStream fileinput = null;
       HSSFWorkbook workbook = null;
       HSSFSheet sheet = null;
+      String templatesPath = props.getProperty("path.templates");
+      String outboxPath = props.getProperty("path.outbox");
       try{
-         file = new File(path+"templates/sampleExcel.xls");
+         file = new File(path+templatesPath+template);
          fileinput= new FileInputStream(file);
-
          if(fileinput!=null){
             workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
             sheet = workbook.getSheetAt(0);
@@ -43,16 +49,61 @@ public class ExcelPOI{
                HSSFRow row = sheet.createRow(j+1);
                for(int i=0;i<=result.getMetaData().getColumnCount()-1;i++){
                   HSSFCell cell = row.createCell(i);
-                  cell.setCellValue(result.getString(i+1));
+                  System.out.println("col: "+i+" "+result.getMetaData().getColumnName(i+1)+ "- dataType: "+result.getMetaData().getColumnTypeName(i+1));
+                  String dataType = result.getMetaData().getColumnTypeName(i+1);
+                  switch(dataType){
+                     case "bit":
+                        cell.setCellValue(result.getBoolean(i+1));
+                        break;
+                     case "tinyint":
+                     case "int":
+                     case "bigint":
+                     case "integer":
+                     case "smallint":
+                        //System.out.println("int: "+result.getInt(i+1));
+                        if(result.getInt(i+1)==0){
+                           cell.setCellValue(0);
+                        }else{
+                           cell.setCellValue(result.getInt(i+1));
+                        }
+                        break;
+                     case "float":
+                     case "real":
+                     case "numeric":
+                     case "decimal":
+                     case "double":
+                        System.out.println("double: "+result.getDouble(i+1));
+                        if(result.getDouble(i+1)==0){
+                           cell.setCellValue(0);
+                        }else{
+                           cell.setCellValue(result.getDouble(i+1));
+                        }
+                        break;
+                     case "date":
+                     case "datetime":
+                     case "time":
+                     case "timestamp":
+                        cell.setCellValue(result.getDate(i+1));
+                        break;
+                     default:
+                        System.out.println("default: "+result.getString(i+1));
+                        if(result.getString(i+1)==null){
+                           cell.setCellValue("");
+                        }else{
+                           cell.setCellValue(result.getString(i+1));
+                        }
+                  }
                }
                j=j+1;
             }
-            FileOutputStream fileOut = new FileOutputStream(path+"templates/incident_result.xls");
+            FileOutputStream fileOut = new FileOutputStream(outboxPath+reportName);
             workbook.write(fileOut);
             fileOut.close();
+            created=true;
          }
       }catch(Exception e){
-          System.out.println(e);
+          System.out.println("ExcelPoi.createReport: "+e);
       }
+      return created;
    }
 }
