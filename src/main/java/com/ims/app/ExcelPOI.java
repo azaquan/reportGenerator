@@ -8,6 +8,8 @@ import java.io.InputStream;
 
 import java.sql.*;
 import java.util.Properties;
+import java.util.Map;
+import java.util.HashMap;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
@@ -33,6 +35,7 @@ public class ExcelPOI{
    public boolean createReport(ResultSet result) throws IOException {
       boolean created = false;
       int j=0;
+      int cols=0;
       File file = null;
       InputStream fileinput = null;
       HSSFWorkbook workbook = null;
@@ -45,11 +48,13 @@ public class ExcelPOI{
          if(fileinput!=null){
             workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
             sheet = workbook.getSheetAt(0);
+            cols=result.getMetaData().getColumnCount()-1;
+            Map<Integer,HSSFCellStyle> styleMap = ImsUtils.getStyleMap(sheet, cols);
+            sheet.removeRow(sheet.getRow(1));
             while(result.next()){
-               HSSFRow row = sheet.createRow(j+1);
-               for(int i=0;i<=result.getMetaData().getColumnCount()-1;i++){
-                  HSSFCell cell = row.createCell(i);
-                  System.out.println("col: "+i+" "+result.getMetaData().getColumnName(i+1)+ "- dataType: "+result.getMetaData().getColumnTypeName(i+1));
+               HSSFRow row = ImsUtils.getNewRow(sheet, styleMap, j+1);
+               for(int i=0;i<=cols-2;i++){
+                  HSSFCell cell = row.getCell(i);
                   String dataType = result.getMetaData().getColumnTypeName(i+1);
                   switch(dataType){
                      case "bit":
@@ -60,7 +65,6 @@ public class ExcelPOI{
                      case "bigint":
                      case "integer":
                      case "smallint":
-                        //System.out.println("int: "+result.getInt(i+1));
                         if(result.getInt(i+1)==0){
                            cell.setCellValue(0);
                         }else{
@@ -72,7 +76,6 @@ public class ExcelPOI{
                      case "numeric":
                      case "decimal":
                      case "double":
-                        System.out.println("double: "+result.getDouble(i+1));
                         if(result.getDouble(i+1)==0){
                            cell.setCellValue(0);
                         }else{
@@ -86,7 +89,6 @@ public class ExcelPOI{
                         cell.setCellValue(result.getDate(i+1));
                         break;
                      default:
-                        System.out.println("default: "+result.getString(i+1));
                         if(result.getString(i+1)==null){
                            cell.setCellValue("");
                         }else{
@@ -94,7 +96,7 @@ public class ExcelPOI{
                         }
                   }
                }
-               j=j+1;
+               j++;
             }
             FileOutputStream fileOut = new FileOutputStream(outboxPath+reportName);
             workbook.write(fileOut);
