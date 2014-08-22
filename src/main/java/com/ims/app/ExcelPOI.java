@@ -48,7 +48,7 @@ public class ExcelPOI{
          if(fileinput!=null){
             workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
             sheet = workbook.getSheetAt(0);
-            cols=result.getMetaData().getColumnCount()-1;
+            cols=result.getMetaData().getColumnCount();
             Map<Integer,HSSFCellStyle> styleMap = ImsUtils.getStyleMap(sheet, cols);
             sheet.removeRow(sheet.getRow(1));
             while(result.next()){

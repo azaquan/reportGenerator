@@ -2,10 +2,12 @@ package com.ims.app;
 
 import java.sql.*;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Date;
+import org.apache.commons.lang3.time.DateUtils;
 
 public class ReportGenerator{
    private Connection conn = null;
@@ -67,41 +69,90 @@ public class ReportGenerator{
          String reportUserId=repoRef.getString("userId");
          String reportRecipients=repoRef.getString("receipients");
          String reportDescription=repoRef.getString("description");
+         String reportBodyText1=repoRef.getString("bodyText1");
 
-         ResultSet result = DbUtils.getResultSet(conn,reportQuery);
-         if(result==null){
-            System.out.println("Nothing got from: "+reportQuery);
-         }else{
-            String sufixDate = String.format("-%1$tY_%1$tm_%1$te-%1$tH_%1$tM", new Date());
-            String reportFileName = reportNamespace+"-"+reportName+sufixDate+".xls";
-            ExcelPOI excel = new ExcelPOI(path, reportFileName, reportTemplate, props);
-            if(excel.createReport(result)){
+         int fromDayRef=repoRef.getInt("fromDayRef");
+         int toDayRef=repoRef.getInt("toDayRef");
+         int fromMonthsRef=repoRef.getInt("fromMonthRef");
+         int toMonthsRef=repoRef.getInt("toMonthRef");
 
-               String outboxPath = props.getProperty("path.outbox");
+         if(isValidToGenerate(repoRef)){
+            System.out.println("fromDayRef->"+fromDayRef);
+            Date date=DateUtils.addDays(new Date(), fromDayRef);
+            String fromDate=String.format("%1$tY%1$tm%1$te", date);
+            fromDate = fromDate + " 00:00:00:001";
+            System.out.println("fromDate->"+fromDate);
 
-               String emailSubject= reportName+" Report ";
-               String emailBody="This is a testing email for the automation of the reports";  //It should be taken from properties
-               String emailAttachmentFile=outboxPath+reportFileName;
-               String emailRecipientStr=reportRecipients;
-               String emailCreaUser=reportUserId;
+            System.out.println("toDayRef->"+toDayRef);
+            date=DateUtils.addDays(new Date(), toDayRef);
+            String toDate=String.format("%1$tY%1$tm%1$te", date);
+            toDate = toDate+" 23:59:59:999";
 
-               Map<Integer, String> map = new HashMap<Integer, String>();
-               map.put(1, emailSubject);
-               map.put(2, emailBody);
-               map.put(3, emailAttachmentFile);
-               map.put(4, emailRecipientStr);
-               map.put(5, emailCreaUser);
-               if(DbUtils.sendReport(conn,map)){
-                  System.out.println("The report has been routed to be sent succesfully");
-               }else{
-                  System.out.println("Something went wrong.  The report was not routed to be sent");
-               }
+            String newLine = System.getProperty("line.separator");
+            reportBodyText1 = reportDescription+newLine+"This is a test."+newLine;
+            reportBodyText1=reportBodyText1+newLine+"From date: "+fromDate+newLine+newLine+"To date: "+toDate;
+
+            System.out.println("toDate->"+toDate);
+
+
+
+            reportQuery = reportQuery.replaceFirst("\\?", fromDate);
+            reportQuery = reportQuery.replaceFirst("\\?", toDate);
+            ResultSet result = DbUtils.getResultSet(conn,reportQuery);
+
+            System.out.println("reportQuery: "+reportQuery);
+            if(result==null){
+               System.out.println("Nothing got from: "+reportQuery);
             }else{
-               System.out.println("Something went wrong.  The "+reportFileName+" could not be generated");
+               String sufixDate = String.format("-%1$tY_%1$tm_%1$te-%1$tH_%1$tM", new Date());
+               String reportFileName = reportNamespace+"-"+reportName+sufixDate+".xls";
+               ExcelPOI excel = new ExcelPOI(path, reportFileName, reportTemplate, props);
+               if(excel.createReport(result)){
+
+                  String outboxPath = props.getProperty("path.outbox");
+
+                  String emailSubject= reportName+" Report ";
+                  String emailBody=reportBodyText1;
+                  String emailAttachmentFile=outboxPath+reportFileName;
+                  String emailRecipientStr=reportRecipients;
+                  String emailCreaUser=reportUserId;
+
+                  Map<Integer, String> map = new HashMap<Integer, String>();
+                  map.put(1, emailSubject);
+                  map.put(2, emailBody);
+                  map.put(3, emailAttachmentFile);
+                  map.put(4, emailRecipientStr);
+                  map.put(5, emailCreaUser);
+                  if(DbUtils.sendReport(conn,map)){
+                     System.out.println("The report has been routed to be sent succesfully");
+                  }else{
+                     System.out.println("Something went wrong.  The report was not routed to be sent");
+                  }
+               }else{
+                  System.out.println("Something went wrong.  The "+reportFileName+" could not be generated");
+               }
             }
          }
       }catch(IOException | SQLException e){
          System.out.println("generateReport error: "+e.getMessage());
       }
 	}
+
+   public static boolean isValidToGenerate(ResultSet record){
+      boolean isValid=false;
+	   try{
+	      String frequency=record.getString("frequency");
+	      if(frequency!=null){
+            switch(frequency){
+               case "daily":
+                  isValid=true;
+                  break;
+               default:
+            }
+         }
+      }catch(SQLException e){
+         System.out.println("generateReport error: "+e.getMessage());
+      }
+      return isValid;
+   }
 }

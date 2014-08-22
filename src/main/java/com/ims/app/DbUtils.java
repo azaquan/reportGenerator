@@ -64,9 +64,4 @@ public class DbUtils{
 		}
 		return sent;
    }
-
-   public static boolean isValidToGenerate(ResultSet record){
-      boolean isValid=false;
-      return isValid;
-   }
 }
