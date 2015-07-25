@@ -19,6 +19,8 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.hssf.model.Sheet;
 import org.apache.poi.hssf.usermodel.*;
 
+import java.math.BigDecimal;
+
 public class ExcelPOI{
    private String path;
    private String reportName;
@@ -81,6 +83,16 @@ public class ExcelPOI{
                         }else{
                            cell.setCellValue(result.getDouble(i+1));
                         }
+                        break;
+                     case "money":
+                     	BigDecimal bigResult = result.getBigDecimal(i+1);
+                     	Double doubleResult = bigResult.doubleValue();
+                     	if(doubleResult==0){
+                     		cell.setCellValue(0);
+                     	}else{
+                     		cell.setCellValue(doubleResult);
+                     		System.out.println(doubleResult);
+                     	}
                         break;
                      case "date":
                      case "datetime":
