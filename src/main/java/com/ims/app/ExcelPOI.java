@@ -51,13 +51,15 @@ public class ExcelPOI{
             workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
             sheet = workbook.getSheetAt(0);
             cols=result.getMetaData().getColumnCount();
+            System.out.println("@@cols "+cols);
             Map<Integer,HSSFCellStyle> styleMap = ImsUtils.getStyleMap(sheet, cols);
             sheet.removeRow(sheet.getRow(1));
             while(result.next()){
                HSSFRow row = ImsUtils.getNewRow(sheet, styleMap, j+1);
-               for(int i=0;i<=cols-2;i++){
+               for(int i=0;i<=cols-1;i++){
                   HSSFCell cell = row.getCell(i);
                   String dataType = result.getMetaData().getColumnTypeName(i+1);
+                  //System.out.println("@@ "+dataType+" ->"+result.getString(i+1));
                   switch(dataType){
                      case "bit":
                         cell.setCellValue(result.getBoolean(i+1));
@@ -86,13 +88,16 @@ public class ExcelPOI{
                         break;
                      case "money":
                      	BigDecimal bigResult = result.getBigDecimal(i+1);
-                     	Double doubleResult = bigResult.doubleValue();
-                     	if(doubleResult==0){
+                     	if(bigResult==null){
                      		cell.setCellValue(0);
                      	}else{
-                     		cell.setCellValue(doubleResult);
-                     		System.out.println(doubleResult);
-                     	}
+									if(bigResult.equals(BigDecimal.ZERO)){
+										cell.setCellValue(0);
+									}else{
+										Double doubleResult = bigResult.doubleValue();
+										cell.setCellValue(doubleResult);
+									}
+								}
                         break;
                      case "date":
                      case "datetime":
