@@ -46,12 +46,12 @@ public class ExcelPOI{
       String outboxPath = props.getProperty("path.outbox");
       try{
          file = new File(path+templatesPath+template);
+         System.out.println("@@ path->"+path+templatesPath+template);
          fileinput= new FileInputStream(file);
          if(fileinput!=null){
             workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
             sheet = workbook.getSheetAt(0);
             cols=result.getMetaData().getColumnCount();
-            System.out.println("@@cols "+cols);
             Map<Integer,HSSFCellStyle> styleMap = ImsUtils.getStyleMap(sheet, cols);
             sheet.removeRow(sheet.getRow(1));
             while(result.next()){
@@ -59,7 +59,6 @@ public class ExcelPOI{
                for(int i=0;i<=cols-1;i++){
                   HSSFCell cell = row.getCell(i);
                   String dataType = result.getMetaData().getColumnTypeName(i+1);
-                  //System.out.println("@@ "+dataType+" ->"+result.getString(i+1));
                   switch(dataType){
                      case "bit":
                         cell.setCellValue(result.getBoolean(i+1));

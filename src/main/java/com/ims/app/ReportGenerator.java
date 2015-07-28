@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Date;
+import java.util.Calendar;
 import org.apache.commons.lang3.time.DateUtils;
 
 public class ReportGenerator{
@@ -75,6 +76,10 @@ public class ReportGenerator{
          int toDayRef=repoRef.getInt("toDayRef");
          int fromMonthsRef=repoRef.getInt("fromMonthRef");
          int toMonthsRef=repoRef.getInt("toMonthRef");
+         boolean withFromDate=false;
+         if (fromDayRef>0){
+         	withFromDate=true;
+         }
 
          if(isValidToGenerate(repoRef)){
             System.out.println("fromDayRef->"+fromDayRef);
@@ -90,11 +95,12 @@ public class ReportGenerator{
 
             String newLine = System.getProperty("line.separator");
             reportBodyText1 = reportDescription+newLine+"This is a test."+newLine;
-            reportBodyText1=reportBodyText1+newLine+"From date: "+fromDate+newLine+newLine+"To date: "+toDate;
-
+            if (withFromDate){
+            	reportBodyText1=reportBodyText1+newLine+"From date: "+fromDate+newLine+newLine+"To date: "+toDate;
+            }else{
+            	reportBodyText1=reportBodyText1+newLine+"To date: "+toDate;
+            }
             System.out.println("toDate->"+toDate);
-
-
 
             reportQuery = reportQuery.replaceFirst("\\?", fromDate);
             reportQuery = reportQuery.replaceFirst("\\?", toDate);
@@ -142,11 +148,21 @@ public class ReportGenerator{
       boolean isValid=false;
 	   try{
 	      String frequency=record.getString("frequency");
+	      String scheduledMonthDayRef=record.getString("scheduledMonthDayRef");
 	      if(frequency!=null){
             switch(frequency){
                case "daily":
                   isValid=true;
                   break;
+               case "monthly":                                   
+               	System.out.println("@@ monthly->"+scheduledMonthDayRef);
+               	int reportDay=ImsUtils.stringToInt(scheduledMonthDayRef,1);
+               	if (reportDay==Calendar.getInstance().getTime().getDay()){
+               			isValid=true;
+               	}else{
+               		System.out.println("Report active but scheduled for day number: "+reportDay);
+               	}
+                  break; 	
                default:
             }
          }

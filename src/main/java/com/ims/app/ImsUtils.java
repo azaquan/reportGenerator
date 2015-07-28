@@ -57,4 +57,12 @@ public class ImsUtils{
       }
       return row;
    }
+
+	public static int stringToInt(String value, int _default) {
+		 try {
+			  return Integer.parseInt(value);
+		 } catch (NumberFormatException e) {
+			  return _default;
+		 }
+	}
 }
