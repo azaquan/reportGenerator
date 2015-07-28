@@ -9,6 +9,7 @@ import java.util.Properties;
 import java.util.Date;
 import java.util.Calendar;
 import org.apache.commons.lang3.time.DateUtils;
+import org.joda.time.DateTime;
 
 public class ReportGenerator{
    private Connection conn = null;
@@ -154,10 +155,11 @@ public class ReportGenerator{
                case "daily":
                   isValid=true;
                   break;
-               case "monthly":                                   
-               	System.out.println("@@ monthly->"+scheduledMonthDayRef);
+               case "monthly":                        
+               	DateTime now = new DateTime();
+               	System.out.println("@@ today->"+now.dayOfMonth().get() );
                	int reportDay=ImsUtils.stringToInt(scheduledMonthDayRef,1);
-               	if (reportDay==Calendar.getInstance().getTime().getDay()){
+               	if (reportDay==now.dayOfMonth().get()){
                			isValid=true;
                	}else{
                		System.out.println("Report active but scheduled for day number: "+reportDay);
