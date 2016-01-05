@@ -7,6 +7,7 @@ import java.util.Properties;
 import java.util.Map;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.lang.ClassNotFoundException;
 
 
 public class DbUtils{
@@ -36,7 +37,7 @@ public class DbUtils{
          Statement stmt = conn.createStatement();
          result = stmt.executeQuery(query);
       }catch(SQLException e){
-         System.out.println("@getResultSet: "+e.getMessage());
+         System.out.println("@getResultSet exception: "+e.getMessage());
       }
       return result;
    }

@@ -16,7 +16,7 @@ public class ImsUtils{
       FileInputStream input = null;
       String fileName = "reportGenerator.properties";
       try{
-         input = new FileInputStream(path+fileName);
+         input = new FileInputStream(path+"sources/"+fileName);
          if(input==null){
             System.out.println("Sorry, unable to find "+fileName);
             return props;
@@ -48,12 +48,13 @@ public class ImsUtils{
       }
       return map;
    }
-
+   
    public static HSSFRow getNewRow(HSSFSheet sheet, Map<Integer,HSSFCellStyle> map, int rowNumber){
-      HSSFRow row = sheet.createRow(rowNumber);
+   	HSSFRow row = null;
+      row = sheet.createRow(rowNumber);
       for(int i=0;i<=map.size()-1;i++){
          HSSFCell cell = row.createCell(i);
-         cell.setCellStyle(map.get(i));
+         cell.setCellStyle(map.get(i));                   
       }
       return row;
    }

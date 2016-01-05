@@ -20,12 +20,14 @@ import org.apache.poi.hssf.model.Sheet;
 import org.apache.poi.hssf.usermodel.*;
 
 import java.math.BigDecimal;
+import org.apache.log4j.Logger;
 
 public class ExcelPOI{
    private String path;
    private String reportName;
    private String template;
    private Properties props;
+   private static final Logger logger = Logger.getLogger(ReportGenerator.class);
 
    public ExcelPOI(String rPath, String rName, String rTemplate, Properties rProperties){
       path=rPath;
@@ -36,8 +38,8 @@ public class ExcelPOI{
 
    public boolean createReport(ResultSet result) throws IOException {
       boolean created = false;
-      int j=0;
       int cols=0;
+      int r=1;
       File file = null;
       InputStream fileinput = null;
       HSSFWorkbook workbook = null;
@@ -46,22 +48,31 @@ public class ExcelPOI{
       String outboxPath = props.getProperty("path.outbox");
       try{
          file = new File(path+templatesPath+template);
-         System.out.println("@@ path->"+path+templatesPath+template);
+			if(logger.isDebugEnabled()){
+				logger.debug("@@ path->"+path+templatesPath+template);
+			}
          fileinput= new FileInputStream(file);
          if(fileinput!=null){
             workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
             sheet = workbook.getSheetAt(0);
             cols=result.getMetaData().getColumnCount();
-            Map<Integer,HSSFCellStyle> styleMap = ImsUtils.getStyleMap(sheet, cols);
-            sheet.removeRow(sheet.getRow(1));
+				if(logger.isDebugEnabled()){
+					logger.debug("@@ - cols="+cols);
+				}
             while(result.next()){
-               HSSFRow row = ImsUtils.getNewRow(sheet, styleMap, j+1);
+					if(logger.isDebugEnabled()){
+						logger.debug("@@ - row="+r);
+					}
+               HSSFRow row = sheet.createRow(r);
                for(int i=0;i<=cols-1;i++){
-                  HSSFCell cell = row.getCell(i);
+                  HSSFCell cell = row.createCell(i);
                   String dataType = result.getMetaData().getColumnTypeName(i+1);
+						if(logger.isDebugEnabled()){
+							logger.debug("@@ dataType->"+dataType);
+						}
                   switch(dataType){
                      case "bit":
-                        cell.setCellValue(result.getBoolean(i+1));
+                     	cell.setCellValue(result.getBoolean(i+1));
                         break;
                      case "tinyint":
                      case "int":
@@ -102,17 +113,31 @@ public class ExcelPOI{
                      case "datetime":
                      case "time":
                      case "timestamp":
-                        cell.setCellValue(result.getDate(i+1));
+                     	if(result.getDate(i+1)!=null){
+                     		cell.setCellValue(result.getDate(i+1));
+                     	}
+                        break;
+                     case "varchar":
+                     case "char":
+                     case "text":
+                     	if(result.getString(i+1)!=null){
+                        	String value=result.getString(i+1);
+                        	if(value!=null){
+										if(logger.isDebugEnabled()){
+											logger.debug("string->"+value);
+										}
+                        		cell.setCellValue(value.toString());
+                        	}
+                        }
                         break;
                      default:
-                        if(result.getString(i+1)==null){
-                           cell.setCellValue("");
-                        }else{
-                           cell.setCellValue(result.getString(i+1));
+                        if(result.getObject(i+1)!=null){
+                        	Object o = result.getObject(i+1);
+                           cell.setCellValue(o.toString());
                         }
                   }
                }
-               j++;
+               r++;
             }
             FileOutputStream fileOut = new FileOutputStream(outboxPath+reportName);
             workbook.write(fileOut);
@@ -120,8 +145,11 @@ public class ExcelPOI{
             created=true;
          }
       }catch(Exception e){
-          System.out.println("ExcelPoi.createReport: "+e);
+          logger.error("ExcelPoi.createReport: "+e);
       }
+	   if(logger.isDebugEnabled()){
+	   	logger.debug("createReport() has been executed!");
+	   }
       return created;
    }
 }
