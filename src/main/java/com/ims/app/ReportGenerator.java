@@ -21,6 +21,7 @@ private String path;
 private Properties props = null;
 private static final Logger log = Logger.getLogger(ReportGenerator.class);
  
+String nullString = null;
 String name="";
 String lang="";
 String fromDate="";
@@ -29,6 +30,7 @@ int fromDayRef;
 int toDayRef;
 int fromMonthsRef;
 int toMonthsRef;
+String xuser="";
 String namespace="";
 String company="";
 String location="";
@@ -36,10 +38,13 @@ String logical="";
 String stock="";
 String po="";
 String transac="";
+String currency="";
+
 	
 	public ReportGenerator(String []args){
 		for(int i=0;i<args.length;i++){
 			try{
+				log.debug("--------"+args[i]); 
 				switch(args[i]){
 					case "-name":
 						name=args[i+1];
@@ -58,6 +63,9 @@ String transac="";
 						break;
 					case "-toMonthsRef":
 						toMonthsRef=Integer.parseInt(args[i+1]);
+						break;
+					case "-xuser":
+						xuser=args[i+1];
 						break;
 					case "-namespace":
 						namespace=args[i+1];
@@ -79,6 +87,9 @@ String transac="";
 						break;
 					case "-transac":
 						transac=args[i+1];
+						break;
+					case "-currency":
+						currency=args[i+1];
 						break;
 				}
 			}catch(Exception e){
@@ -103,18 +114,22 @@ String transac="";
 
 	public static void main(String []args){
 		System.out.println("- -");
-		System.out.println("@@@@@ args-> "+args.length);
+		log.debug("@@@@@ args-> "+args.length);
 		ReportGenerator report = new ReportGenerator(args);
 		if(args.length>0){
 			report.doOnDemand(args);
 		}else{
 			report.reviewReportList();
 		}
-	   log.info("ReportGenerator END");
+		if(log.isInfoEnabled()){
+			log.info("ReportGenerator END");
+		}
 	}
 	
 	public void doOnDemand(String []args){
-		log.info("ReportGenerator ON DEMAN START - - - - - - - - - - - - - - - - - - - - - ");
+		if(log.isInfoEnabled()){
+			log.info("ReportGenerator ON DEMAN START - - - - - - - - - - - - - - - - - - - - - ");
+		}
 	   if(conn==null){
 	      log.error("Wrong connection with the DB");
 	   }else{
@@ -122,22 +137,27 @@ String transac="";
          String reportQuery = "";
          ResultSet result = DbUtils.getResultSet(conn,query);
          if(result==null){
-         	log.debug("reviewReportList() has been executed!");                                      
+         	log.debug("doOnDemand() has been executed!");                                      
          }else{
             try{
                while(result.next()){
                   if(result.getBoolean("active")){
                      reportQuery=result.getString("query");
                      if(!reportQuery.isEmpty()){
-								reportQuery.replace("-namespace",namespace);
-								reportQuery.replace("-company",company);
-								reportQuery.replace("-location",location);
-								reportQuery.replace("-logical",logical);
-								reportQuery.replace("-stock",stock);
-								reportQuery.replace("-po",po);
-								reportQuery.replace("-transac",transac);
-                     	log.info("Report: "+name);  
-                        generateReport(result,false);
+								reportQuery=reportQuery.replace("-namespace",namespace);
+								reportQuery=reportQuery.replace("-company",company);
+								reportQuery=reportQuery.replace("-location",location);
+								reportQuery=reportQuery.replace("-logical",logical);
+								reportQuery=reportQuery.replace("-stock",stock);
+								reportQuery=reportQuery.replace("-po",po);
+								reportQuery=reportQuery.replace("-transac",transac);
+								reportQuery=reportQuery.replace("-currency",currency);
+								System.out.println("@@@ before reportQuery->"+reportQuery);
+								if(log.isInfoEnabled()){
+									log.info("Report: "+name);  
+								}
+                     	String email = DbUtils.getUserEmail(conn, namespace, xuser);
+                        generateReport(result,false,reportQuery, email);
                      }
                   }
                }
@@ -153,7 +173,9 @@ String transac="";
 	}
 
 	public void reviewReportList(){
-		log.info("ReportGenerator START - - - - - - - - - - - - - - - - - - - - - ");
+		if(log.isInfoEnabled()){
+			log.info("ReportGenerator START - - - - - - - - - - - - - - - - - - - - - ");
+		}
 	   if(conn==null){
 	      log.error("Wrong connection with the DB");
 	   }else{
@@ -168,9 +190,11 @@ String transac="";
                   if(result.getBoolean("active")){
                      reportQuery=result.getString("query");
                      if(!reportQuery.isEmpty()){
-                     	String name=result.getString("reportName");
-                     	log.info("Report: "+name);  
-                        generateReport(result,true);
+                     	name=result.getString("reportName");
+                     	if(log.isInfoEnabled()){
+                     		log.info("Report: "+name);  
+                     	}
+                        generateReport(result,true,"","");
                      }
                   }
                }
@@ -187,13 +211,21 @@ String transac="";
 
 	public void generateReport(
 			ResultSet repoRef,
-			boolean isAutomatic){
+			boolean isAutomatic,
+			String reportQuery,
+			String email){
 	   try{
-         String reportQuery=repoRef.getString("query");
-         String namespace=repoRef.getString("namespace");
+	   	if(reportQuery.equals("")){
+	   		System.out.println("@@@ after reportQuery->NULL");
+	   		reportQuery=repoRef.getString("query");
+	   	}
+	   	System.out.println("@@@ reportQuery->"+reportQuery);
          String reportTemplate=repoRef.getString("template");
          String reportUserId=repoRef.getString("userId");
          String reportRecipients=repoRef.getString("receipients");
+         if (!email.equals("")){
+         		reportRecipients=email;
+         }
          String reportDescription=repoRef.getString("description");
          String reportBodyText1=repoRef.getString("bodyText1");
 
@@ -240,8 +272,8 @@ String transac="";
 					String newLine = System.getProperty("line.separator");
 					reportBodyText1 = reportBodyText1+newLine+newLine+"Description: "+reportDescription;
 					reportBodyText1=reportBodyText1+newLine+"From date: "+fromDate+newLine+newLine+"To date: "+toDate;
-					reportQuery = reportQuery.replaceAll("\\?1", "'"+fromDate+" 00:00:00.000'");
-					reportQuery = reportQuery.replaceAll("\\?2", "'"+toDate+" 23:59:59.999'");
+					reportQuery = reportQuery=reportQuery.replaceAll("\\?1", "'"+fromDate+" 00:00:00.000'");
+					reportQuery = reportQuery=reportQuery.replaceAll("\\?2", "'"+toDate+" 23:59:59.999'");
 					log.debug("- query->"+reportQuery);
             }
             ResultSet result = DbUtils.getResultSet(conn,reportQuery);
@@ -249,8 +281,13 @@ String transac="";
             if(result==null){
                log.debug("query returns null");
             }else{
-               String sufixDate = fmt.print(new DateTime().now());
-               String reportFileName = namespace+"-"+name+sufixDate+".xls";
+            	DateTimeFormatter fmtTime=DateTimeFormat.forPattern("yyyy-MM-dd_HH-mm-ss");
+               String sufixDate = fmtTime.print(new DateTime().now());
+               String reportFileName = 
+               	name+"-"+
+               	(namespace.equals("")?"":namespace+"-")+
+               	(company.equals("")?"":company+"-")+
+               	(location.equals("")?"":location+"-")+sufixDate+".xls";
                ExcelPOI excel = new ExcelPOI(path, reportFileName, reportTemplate, props);
                if(excel.createReport(result)){
                	String outboxPath = props.getProperty("path.outbox");
@@ -267,12 +304,18 @@ String transac="";
                   map.put(4, emailRecipientStr);
                   map.put(5, emailCreaUser);
                   if(DbUtils.sendReport(conn,map)){
-                     log.info("The report has been routed to be sent succesfully");
+                  	if(log.isInfoEnabled()){
+                  		log.info("The report has been routed to be sent succesfully");
+                  	}
                   }else{
-                  	log.info("Something went wrong.  The report was not routed to be sent");
+                  	if(log.isInfoEnabled()){
+                  		log.info("Something went wrong.  The report was not routed to be sent");
+                  	}
                   }
                }else{
-                  log.info("Something went wrong.  The "+reportFileName+" could not be generated");
+               	if(log.isInfoEnabled()){
+               		log.info("Something went wrong.  The "+reportFileName+" could not be generated");
+               	}
                }
             }
          }
@@ -301,7 +344,9 @@ String transac="";
                	if (reportDay==now.dayOfMonth().get()){
                			isValid=true;
                	}else{
-               		log.info("Report active but scheduled for day number: "+reportDay);
+               		if(log.isInfoEnabled()){
+               			log.info("Report active but scheduled for day number: "+reportDay);
+               		}
                	}
                   break; 	
                default:

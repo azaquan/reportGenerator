@@ -65,4 +65,25 @@ public class DbUtils{
 		}
 		return sent;
    }
+   
+   public static String getUserEmail(Connection dbConnection, String namespace, String xUser){
+   	System.out.println("getUserEmail-->"+xUser);
+   	String query = "select * from xuserprofile where usr_npecode = '"+namespace+"' and usr_userid='"+xUser+"'  ";
+   	String email = "";
+		ResultSet result = DbUtils.getResultSet(dbConnection, query);
+		if(result==null){
+			System.out.println("getUserEmail() has been executed!");                                      
+		}else{
+			try{
+				while(result.next()){
+					email=result.getString("email");
+					break;
+				}
+			}catch (SQLException e) {
+            System.out.println(e.getMessage());
+         }
+		}
+		System.out.println("getUserEmail email -->"+email);
+		return email;
+   }
 }

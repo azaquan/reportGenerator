@@ -18,6 +18,7 @@ import javax.sql.DataSource;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.hssf.model.Sheet;
 import org.apache.poi.hssf.usermodel.*;
+import org.apache.poi.hssf.util.HSSFColor;
 
 import java.math.BigDecimal;
 import org.apache.log4j.Logger;
@@ -28,6 +29,7 @@ public class ExcelPOI{
    private String template;
    private Properties props;
    private static final Logger logger = Logger.getLogger(ReportGenerator.class);
+   private String nullString = null;
 
    public ExcelPOI(String rPath, String rName, String rTemplate, Properties rProperties){
       path=rPath;
@@ -38,6 +40,7 @@ public class ExcelPOI{
 
    public boolean createReport(ResultSet result) throws IOException {
       boolean created = false;
+      boolean[] totalCells = new boolean[1];
       int cols=0;
       int r=1;
       File file = null;
@@ -46,29 +49,48 @@ public class ExcelPOI{
       HSSFSheet sheet = null;
       String templatesPath = props.getProperty("path.templates");
       String outboxPath = props.getProperty("path.outbox");
+      HSSFCell cell = null;
+      HSSFRow row = null;
       try{
          file = new File(path+templatesPath+template);
 			if(logger.isDebugEnabled()){
-				logger.debug("@@ path->"+path+templatesPath+template);
+				logger.info("@@ path->"+path+templatesPath+template);
 			}
          fileinput= new FileInputStream(file);
          if(fileinput!=null){
             workbook = (HSSFWorkbook) WorkbookFactory.create(fileinput);
             sheet = workbook.getSheetAt(0);
             cols=result.getMetaData().getColumnCount();
+            totalCells=new boolean[cols];
 				if(logger.isDebugEnabled()){
-					logger.debug("@@ - cols="+cols);
+					//logger.debug("@@ - cols="+cols);
 				}
+				int n=0;
+				for(Row rr : sheet) {     
+					if(n==1){
+					  for(Cell c : rr) {              
+							if(c==null){
+								totalCells[c.getColumnIndex()]=false;
+							}else{
+								if(c.getStringCellValue().equals("sum")){
+									totalCells[c.getColumnIndex()]=true;
+								}
+							}
+					  }
+					  break;
+					}
+					n++;
+				} 
             while(result.next()){
 					if(logger.isDebugEnabled()){
 						logger.debug("@@ - row="+r);
 					}
-               HSSFRow row = sheet.createRow(r);
+               row = sheet.createRow(r);
                for(int i=0;i<=cols-1;i++){
-                  HSSFCell cell = row.createCell(i);
+                  cell = row.createCell(i);
                   String dataType = result.getMetaData().getColumnTypeName(i+1);
 						if(logger.isDebugEnabled()){
-							logger.debug("@@ dataType->"+dataType);
+							//logger.debug("@@ dataType->"+dataType);
 						}
                   switch(dataType){
                      case "bit":
@@ -124,7 +146,7 @@ public class ExcelPOI{
                         	String value=result.getString(i+1);
                         	if(value!=null){
 										if(logger.isDebugEnabled()){
-											logger.debug("string->"+value);
+											//logger.debug("string->"+value);
 										}
                         		cell.setCellValue(value.toString());
                         	}
@@ -138,6 +160,25 @@ public class ExcelPOI{
                   }
                }
                r++;
+            }
+            row = sheet.createRow(r);
+            HSSFCellStyle cellStyle = workbook.createCellStyle();
+				cellStyle.setFillForegroundColor(HSSFColor.GREY_25_PERCENT.index);
+				cellStyle.setFillPattern(HSSFCellStyle.SOLID_FOREGROUND);
+				HSSFDataFormat dataFormat = workbook.createDataFormat();
+				
+            for(int i=0;i<cols;i++){
+            	cell = row.createCell(i);                                                                                     
+            	cellStyle.setDataFormat(dataFormat.getFormat("_($*#,##0.00_);_($*(#,##0.00);_($*\"-\"??_);_(@_)"));
+					cell.setCellStyle(cellStyle);
+            	if(totalCells[i]){
+					cell.setCellType(HSSFCell.CELL_TYPE_FORMULA);
+            		char l=(char)(65+i);
+            		String letter=String.valueOf(l);
+            		cell.setCellFormula("SUM("+letter+"1:"+letter+String.valueOf(r)+")");
+            	}else{
+            		
+            	}
             }
             FileOutputStream fileOut = new FileOutputStream(outboxPath+reportName);
             workbook.write(fileOut);
