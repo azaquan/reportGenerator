@@ -30,6 +30,9 @@ int fromDayRef;
 int toDayRef;
 int fromMonthsRef;
 int toMonthsRef;
+String matrix;
+int rowFrom;
+int rowTo;
 String xuser="";
 String namespace="";
 String company="";
@@ -39,7 +42,7 @@ String stock="";
 String po="";
 String transac="";
 String currency="";
-
+boolean sendEmail=true;
 	
 	public ReportGenerator(String []args){
 		for(int i=0;i<args.length;i++){
@@ -48,9 +51,20 @@ String currency="";
 				switch(args[i]){
 					case "-name":
 						name=args[i+1];
+					case "-sendEmail":
+						String sendEmailAnswer =args[i+1];
+						if(sendEmailAnswer.toLowerCase().equals("no")){
+							sendEmail=false;
+						}
 						break;
 					case "-lang":
 						lang=args[i+1];
+						break;
+					case "-fromDate":
+						fromDate=args[i+1];
+						break;
+					case "-toDate":
+						toDate=args[i+1];
 						break;
 					case "-fromDayRef":
 						fromDayRef=Integer.parseInt(args[i+1]);
@@ -128,7 +142,7 @@ String currency="";
 	
 	public void doOnDemand(String []args){
 		if(log.isInfoEnabled()){
-			log.info("ReportGenerator ON DEMAN START - - - - - - - - - - - - - - - - - - - - - ");
+			log.info("ReportGenerator ON DEMAND START - - - - - - - - - - - - - - - - - - - - - ");
 		}
 	   if(conn==null){
 	      log.error("Wrong connection with the DB");
@@ -137,12 +151,15 @@ String currency="";
          String reportQuery = "";
          ResultSet result = DbUtils.getResultSet(conn,query);
          if(result==null){
-         	log.debug("doOnDemand() has been executed!");                                      
+         	log.debug("doOnDemand() has been executed with no results from reportGenerator table!");                                      
          }else{
             try{
                while(result.next()){
                   if(result.getBoolean("active")){
                      reportQuery=result.getString("query");
+							if(log.isDebugEnabled()){ 
+								log.info("-Raw reportQuery->"+reportQuery); 
+							}
                      if(!reportQuery.isEmpty()){
 								reportQuery=reportQuery.replace("-namespace",namespace);
 								reportQuery=reportQuery.replace("-company",company);
@@ -152,9 +169,10 @@ String currency="";
 								reportQuery=reportQuery.replace("-po",po);
 								reportQuery=reportQuery.replace("-transac",transac);
 								reportQuery=reportQuery.replace("-currency",currency);
-								System.out.println("@@@ before reportQuery->"+reportQuery);
+								reportQuery=reportQuery.replace("-fromDate",fromDate);
+								reportQuery=reportQuery.replace("-toDate",toDate);
 								if(log.isInfoEnabled()){
-									log.info("Report: "+name);  
+									log.info("-Prepared reportQuery->"+reportQuery);
 								}
                      	String email = DbUtils.getUserEmail(conn, namespace, xuser);
                         generateReport(result,false,reportQuery, email);
@@ -227,8 +245,14 @@ String currency="";
          		reportRecipients=email;
          }
          String reportDescription=repoRef.getString("description");
+         String reportTitle=repoRef.getString("title");
          String reportBodyText1=repoRef.getString("bodyText1");
-
+			matrix = repoRef.getString("matrix");
+			if(repoRef.wasNull()){
+				matrix = "";
+			}
+			rowFrom = repoRef.getInt("rowFrom");
+			rowTo = repoRef.getInt("rowTo");
          if(fromDayRef==0){
          	fromDayRef=repoRef.getInt("fromDayRef");
          }
@@ -277,45 +301,68 @@ String currency="";
 					log.debug("- query->"+reportQuery);
             }
             ResultSet result = DbUtils.getResultSet(conn,reportQuery);
-            log.debug("query to process: "+reportQuery);
+            log.debug(".  .  .  .  .  .  .  .  .  .  .query to process -> "+reportQuery);
             if(result==null){
                log.debug("query returns null");
             }else{
             	DateTimeFormatter fmtTime=DateTimeFormat.forPattern("yyyy-MM-dd_HH-mm-ss");
                String sufixDate = fmtTime.print(new DateTime().now());
-               String reportFileName = 
-               	name+"-"+
-               	(namespace.equals("")?"":namespace+"-")+
-               	(company.equals("")?"":company+"-")+
-               	(location.equals("")?"":location+"-")+sufixDate+".xls";
-               ExcelPOI excel = new ExcelPOI(path, reportFileName, reportTemplate, props);
-               if(excel.createReport(result)){
-               	String outboxPath = props.getProperty("path.outbox");
-                  String emailSubject= name+" Report ";
-                  String emailBody=reportBodyText1;
-                  String emailAttachmentFile=outboxPath+reportFileName;
-                  String emailRecipientStr=reportRecipients;
-                  String emailCreaUser=reportUserId;
-
-                  Map<Integer, String> map = new HashMap<Integer, String>();
-                  map.put(1, emailSubject);
-                  map.put(2, emailBody);
-                  map.put(3, emailAttachmentFile);
-                  map.put(4, emailRecipientStr);
-                  map.put(5, emailCreaUser);
-                  if(DbUtils.sendReport(conn,map)){
-                  	if(log.isInfoEnabled()){
-                  		log.info("The report has been routed to be sent succesfully");
-                  	}
-                  }else{
-                  	if(log.isInfoEnabled()){
-                  		log.info("Something went wrong.  The report was not routed to be sent");
-                  	}
-                  }
+               String sql = "select npce_name from namespace where npce_code='"+namespace+"'";
+               String namespaceName=name;
+               ResultSet fromNamespace = DbUtils.getResultSet(conn,sql);
+               if(fromNamespace==null){
+               	log.debug("namespace query returns null");
                }else{
-               	if(log.isInfoEnabled()){
-               		log.info("Something went wrong.  The "+reportFileName+" could not be generated");
-               	}
+               	try{
+               		while(fromNamespace.next()){
+               			namespaceName=fromNamespace.getString("npce_name");
+               		}
+						}catch(SQLException e){
+							log.error("from server: "+e.getMessage());
+						}
+						namespaceName=namespaceName.replace(" ","_");
+						String reportFileName =
+							name+"-"+
+							(namespaceName.equals("")?"":namespaceName+"-")+
+							(company.equals("")?"":company+"-")+
+							(location.equals("")?"":location+"-")+sufixDate+".xls";
+						String title =
+							(reportTitle.equals("")?"":reportTitle+" ")+
+							(namespaceName.equals("")?"":namespaceName+" ");
+						String period=
+							(fromDate.equals("")?"":fromDate+" to ")+
+							(toDate.equals("")?"":toDate);
+						ExcelPOI excel = new ExcelPOI(path, reportFileName, reportTemplate, props, title, period, matrix, rowFrom, rowTo);
+						if(excel.createReport(result)){
+							if(sendEmail){
+								String outboxPath = props.getProperty("path.outbox");
+								String emailSubject= name+" Report ";
+								String emailBody=reportBodyText1;
+								String emailAttachmentFile=outboxPath+reportFileName;
+								String emailRecipientStr=reportRecipients;
+								String emailCreaUser=reportUserId;
+		
+								Map<Integer, String> map = new HashMap<Integer, String>();
+								map.put(1, emailSubject);
+								map.put(2, emailBody);
+								map.put(3, emailAttachmentFile);
+								map.put(4, emailRecipientStr);
+								map.put(5, emailCreaUser);
+								if(DbUtils.sendReport(conn,map)){
+									if(log.isInfoEnabled()){
+										log.info("The report has been routed to be sent succesfully");
+									}
+								}else{
+									if(log.isInfoEnabled()){
+										log.info("Something went wrong.  The report was not routed to be sent");
+									}
+								}
+							}
+						}else{
+							if(log.isInfoEnabled()){
+								log.info("Something went wrong.  The "+reportFileName+" could not be generated");
+							}
+						}
                }
             }
          }
