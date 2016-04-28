@@ -5,6 +5,7 @@ import java.sql.*;
 import java.sql.CallableStatement;
 import java.util.Properties;
 import java.util.Map;
+import java.util.HashMap;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.ClassNotFoundException;
@@ -71,8 +72,7 @@ public class DbUtils{
    	String query = "select * from xuserprofile where usr_npecode = '"+namespace+"' and usr_userid='"+xUser+"'  ";
    	String email = "";
 		ResultSet result = DbUtils.getResultSet(dbConnection, query);
-		if(result==null){
-			System.out.println("getUserEmail() has been executed!");                                      
+		if(result==null){                            
 		}else{
 			try{
 				while(result.next()){
@@ -85,5 +85,28 @@ public class DbUtils{
 		}
 		System.out.println("getUserEmail email -->"+email);
 		return email;
+   }
+   
+   public static Map<String, String> getEmailConfig(Connection dbConnection){
+   	String query = "select top 1 * from EmailFaxConfig order by orderindex";
+   	Map<String, String> map = new HashMap<String, String>();
+		ResultSet result = DbUtils.getResultSet(dbConnection, query);
+		if(result==null){
+			System.out.println("getUserEmail() has been executed!");                                      
+		}else{
+			try{
+				while(result.next()){
+					map.put("fromEmail", result.getString("FromEmail"));
+					map.put("fromName", result.getString("FromName"));
+					map.put("pass", result.getString("password"));
+					map.put("smtp", result.getString("SMTP"));
+					map.put("port", result.getString("SendingPort"));
+					break;
+				}
+			}catch (SQLException e) {
+            System.out.println(e.getMessage());
+         }
+		}
+		return map;
    }
 }

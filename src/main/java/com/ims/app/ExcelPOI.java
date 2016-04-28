@@ -173,8 +173,10 @@ public class ExcelPOI{
 					}
 					Header header = sheet.getHeader();
 					header.setCenter(title);
+					logger.debug("- title - "+title);
 					workbook.setSheetName(0, title);   
 					FileOutputStream fileOut = new FileOutputStream(outboxPath+reportName);
+					logger.debug("- fileOut - "+fileOut);
 					workbook.write(fileOut);
 					fileOut.close();
 					created=true;

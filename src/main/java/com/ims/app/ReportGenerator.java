@@ -29,7 +29,7 @@ String toDate="";
 int fromDayRef;
 int toDayRef;
 int fromMonthsRef;
-int toMonthsRef;
+int toMonthRef;
 String matrix;
 int rowFrom;
 int rowTo;
@@ -42,7 +42,9 @@ String stock="";
 String po="";
 String transac="";
 String currency="";
+String tempEmail="";
 boolean sendEmail=true;
+String reportQuery;
 	
 	public ReportGenerator(String []args){
 		for(int i=0;i<args.length;i++){
@@ -75,8 +77,8 @@ boolean sendEmail=true;
 					case "-fromMonthsRef":
 						fromMonthsRef=Integer.parseInt(args[i+1]);
 						break;
-					case "-toMonthsRef":
-						toMonthsRef=Integer.parseInt(args[i+1]);
+					case "-toMonthRef":
+						toMonthRef=Integer.parseInt(args[i+1]);
 						break;
 					case "-xuser":
 						xuser=args[i+1];
@@ -104,6 +106,9 @@ boolean sendEmail=true;
 						break;
 					case "-currency":
 						currency=args[i+1];
+						break;
+					case "-tempEmail":
+						tempEmail=args[i+1];
 						break;
 				}
 			}catch(Exception e){
@@ -148,7 +153,7 @@ boolean sendEmail=true;
 	      log.error("Wrong connection with the DB");
 	   }else{
          String query = "select * from reportGenerator where reportName='"+name+"' ";
-         String reportQuery = "";
+         reportQuery = "";
          ResultSet result = DbUtils.getResultSet(conn,query);
          if(result==null){
          	log.debug("doOnDemand() has been executed with no results from reportGenerator table!");                                      
@@ -158,7 +163,7 @@ boolean sendEmail=true;
                   if(result.getBoolean("active")){
                      reportQuery=result.getString("query");
 							if(log.isDebugEnabled()){ 
-								log.info("-Raw reportQuery->"+reportQuery); 
+								log.debug("-Raw reportQuery->"+reportQuery); 
 							}
                      if(!reportQuery.isEmpty()){
 								reportQuery=reportQuery.replace("-namespace",namespace);
@@ -169,12 +174,16 @@ boolean sendEmail=true;
 								reportQuery=reportQuery.replace("-po",po);
 								reportQuery=reportQuery.replace("-transac",transac);
 								reportQuery=reportQuery.replace("-currency",currency);
-								reportQuery=reportQuery.replace("-fromDate",fromDate);
-								reportQuery=reportQuery.replace("-toDate",toDate);
-								if(log.isInfoEnabled()){
-									log.info("-Prepared reportQuery->"+reportQuery);
+								if (!fromDate.equals("")){
+									reportQuery=reportQuery.replace("-fromDate",fromDate+" 00:00:00.000");
+									reportQuery=reportQuery.replace("-toDate",toDate+" 23:59:59.999");
 								}
-                     	String email = DbUtils.getUserEmail(conn, namespace, xuser);
+								String email="";
+								if (tempEmail.equals("")){
+									email = DbUtils.getUserEmail(conn, namespace, xuser);
+								}else{
+									email=tempEmail;
+								}
                         generateReport(result,false,reportQuery, email);
                      }
                   }
@@ -198,7 +207,6 @@ boolean sendEmail=true;
 	      log.error("Wrong connection with the DB");
 	   }else{
          String query = "select * from reportGenerator";
-         String reportQuery = "";
          ResultSet result = DbUtils.getResultSet(conn,query);
          if(result==null){
          	log.debug("reviewReportList() has been executed!");                                      
@@ -212,7 +220,7 @@ boolean sendEmail=true;
                      	if(log.isInfoEnabled()){
                      		log.info("Report: "+name);  
                      	}
-                        generateReport(result,true,"","");
+                        generateReport(result,true,reportQuery,"");
                      }
                   }
                }
@@ -237,39 +245,6 @@ boolean sendEmail=true;
 	   		System.out.println("@@@ after reportQuery->NULL");
 	   		reportQuery=repoRef.getString("query");
 	   	}
-	   	System.out.println("@@@ reportQuery->"+reportQuery);
-         String reportTemplate=repoRef.getString("template");
-         String reportUserId=repoRef.getString("userId");
-         String reportRecipients=repoRef.getString("receipients");
-         if (!email.equals("")){
-         		reportRecipients=email;
-         }
-         String reportDescription=repoRef.getString("description");
-         String reportTitle=repoRef.getString("title");
-         String reportBodyText1=repoRef.getString("bodyText1");
-			matrix = repoRef.getString("matrix");
-			if(repoRef.wasNull()){
-				matrix = "";
-			}
-			rowFrom = repoRef.getInt("rowFrom");
-			rowTo = repoRef.getInt("rowTo");
-         if(fromDayRef==0){
-         	fromDayRef=repoRef.getInt("fromDayRef");
-         }
-         if(toDayRef==0){
-         	toDayRef=repoRef.getInt("toDayRef");
-         }
-         if(fromMonthsRef==0){
-         	fromMonthsRef=repoRef.getInt("fromMonthRef");
-         }
-         if(toMonthsRef==0){
-         	toMonthsRef=repoRef.getInt("toMonthRef");
-         }
-         boolean withFromDate=false;
-         if (fromDayRef>0){
-         	withFromDate=true;
-         }
-         DateTimeFormatter fmt=DateTimeFormat.forPattern("yyyy-MM-dd");
          boolean goAhead=false;
          if(isAutomatic){
          	goAhead = isValidToGenerate(repoRef);
@@ -277,31 +252,78 @@ boolean sendEmail=true;
          	goAhead=true;
          }
          if(goAhead){
+				String reportTemplate=repoRef.getString("template");
+				String reportUserId=repoRef.getString("userId");
+				String reportRecipients=repoRef.getString("receipients");
+				if (!email.equals("")){
+						reportRecipients=email;
+				}
+				String reportDescription=repoRef.getString("description");
+				String reportTitle=repoRef.getString("title");
+				String reportBodyText1=repoRef.getString("bodyText1");
+				matrix = repoRef.getString("matrix");
+				if(repoRef.wasNull()){
+					matrix = "";
+				}
+				rowFrom = repoRef.getInt("rowFrom");
+				rowTo = repoRef.getInt("rowTo");
+				if(fromDayRef==0){
+					fromDayRef=repoRef.getInt("fromDayRef");
+					log.debug("--- - fromDayRef->"+fromDayRef);
+				}
+				if(toDayRef==0){
+					toDayRef=repoRef.getInt("toDayRef");
+					log.debug("--- - toDayRef->"+toDayRef);
+				}
+				if(fromMonthsRef==0){
+					fromMonthsRef=repoRef.getInt("fromMonthRef");
+					log.debug("--- - fromMonthsRef->"+fromMonthsRef);
+				}
+				if(toMonthRef==0){
+					toMonthRef=repoRef.getInt("toMonthRef");
+					log.debug("--- - toMonthRef->"+toMonthRef);
+				}
+				boolean withFromDate=false;
+				if (fromDayRef>0){
+					withFromDate=true;
+				}
+				DateTimeFormatter fmt=DateTimeFormat.forPattern("yyyy-MM-dd");
          	if(withFromDate){
 					DateTime startDate=new DateTime().now();
+					log.info("--- - startDate (now)->"+startDate);
 					startDate=startDate.plusMonths(fromMonthsRef);
+					log.info("--- - startDate (month)->"+startDate);
 					startDate=startDate.dayOfMonth().setCopy(fromDayRef);
-					DateTime endDate=new DateTime().now();
-					endDate=endDate.plusMonths(toMonthsRef);
+					log.info("--- - startDate- (day)>"+startDate);
+					DateTime endDate=new DateTime().now();  
+					log.info("--- - endDate (now)>"+endDate);
+					endDate=endDate.plusMonths(toMonthRef);
+					log.info("--- - endDate (month)>"+endDate);
 					if(toDayRef==99){
 						endDate=endDate.dayOfMonth().setCopy(endDate.dayOfMonth().getMaximumValue());
 					}else{
 						endDate=endDate.dayOfMonth().setCopy(toDayRef);
 					}
+					log.info("--- - endDate (day)>"+endDate);
 					fromDate = fmt.print(startDate);
-					log.debug("- fromDate->"+startDate+" / "+fromDate);
+					fromDate = fromDate+" 00:00:00.000";
+					log.info("- fromDate->"+fromDate);
 					toDate = fmt.print(endDate);
-					log.debug("- fromDate->"+endDate+" / "+toDate);
+					toDate = toDate+" 23:59:59.999";
+					log.info("- toDate->"+toDate);
 	
+					log.info("- before all->"+reportQuery);
+					reportQuery = reportQuery.replace("?1", fromDate);
+					reportQuery = reportQuery.replace("-fromDate",fromDate);
+					reportQuery = reportQuery.replace("?2", toDate);
+					reportQuery = reportQuery.replace("-toDate",toDate);
+					log.info("- after all->"+reportQuery);
 					String newLine = System.getProperty("line.separator");
 					reportBodyText1 = reportBodyText1+newLine+newLine+"Description: "+reportDescription;
 					reportBodyText1=reportBodyText1+newLine+"From date: "+fromDate+newLine+newLine+"To date: "+toDate;
-					reportQuery = reportQuery=reportQuery.replaceAll("\\?1", "'"+fromDate+" 00:00:00.000'");
-					reportQuery = reportQuery=reportQuery.replaceAll("\\?2", "'"+toDate+" 23:59:59.999'");
-					log.debug("- query->"+reportQuery);
             }
             ResultSet result = DbUtils.getResultSet(conn,reportQuery);
-            log.debug(".  .  .  .  .  .  .  .  .  .  .query to process -> "+reportQuery);
+            log.info(".  .  .  .  .  .  .  .  .  .  . final query to get -> "+reportQuery);
             if(result==null){
                log.debug("query returns null");
             }else{
@@ -334,6 +356,11 @@ boolean sendEmail=true;
 							(toDate.equals("")?"":toDate);
 						ExcelPOI excel = new ExcelPOI(path, reportFileName, reportTemplate, props, title, period, matrix, rowFrom, rowTo);
 						if(excel.createReport(result)){
+							try{
+								Thread.sleep(3000);
+							}catch(InterruptedException ex){
+								Thread.currentThread().interrupt();
+							}
 							if(sendEmail){
 								String outboxPath = props.getProperty("path.outbox");
 								String emailSubject= name+" Report ";
@@ -342,13 +369,13 @@ boolean sendEmail=true;
 								String emailRecipientStr=reportRecipients;
 								String emailCreaUser=reportUserId;
 		
-								Map<Integer, String> map = new HashMap<Integer, String>();
-								map.put(1, emailSubject);
-								map.put(2, emailBody);
-								map.put(3, emailAttachmentFile);
-								map.put(4, emailRecipientStr);
-								map.put(5, emailCreaUser);
-								if(DbUtils.sendReport(conn,map)){
+								Map<String, String> map = new HashMap<String, String>();
+								map.put("emailSubject", emailSubject + "("+reportFileName+")");
+								map.put("emailBody", emailBody);
+								map.put("emailAttachmentFile", emailAttachmentFile);
+								map.put("emailRecipientStr", emailRecipientStr);
+								map.put("emailCreaUser", emailCreaUser);
+								if(ImsUtils.sendEmail(conn, props, map)){
 									if(log.isInfoEnabled()){
 										log.info("The report has been routed to be sent succesfully");
 									}
@@ -378,26 +405,40 @@ boolean sendEmail=true;
       boolean isValid=false;
 	   try{
 	      String frequency=record.getString("frequency");
+	      boolean isMonthly = false;
+	      boolean isWeekly = false;
+	      boolean isDaily = false;
 	      String scheduledMonthDayRef=record.getString("scheduledMonthDayRef");
+	      String scheduledWeekDayRef =record.getString("scheduledWeekDayRef");
+			DateTime now = new DateTime();
+			log.info("@@ today->"+now.dayOfMonth().get());
 	      if(frequency!=null){
-            switch(frequency){
-               case "daily":
-                  isValid=true;
-                  break;
-               case "monthly":                        
-               	DateTime now = new DateTime();
-               	log.debug("@@ today->"+now.dayOfMonth().get());
-               	int reportDay=ImsUtils.stringToInt(scheduledMonthDayRef,1);
-               	if (reportDay==now.dayOfMonth().get()){
-               			isValid=true;
-               	}else{
-               		if(log.isInfoEnabled()){
-               			log.info("Report active but scheduled for day number: "+reportDay);
-               		}
-               	}
-                  break; 	
-               default:
-            }
+				if (frequency.indexOf("daily")>=0){
+					isDaily = true;
+					isValid=true;
+				}
+				if (frequency.indexOf("weekly")>=0){
+					isWeekly = true;
+					int weekReportDay=ImsUtils.stringToInt(scheduledWeekDayRef,1);
+					if (weekReportDay==now.dayOfWeek().get()){
+						isValid=true;
+					}else{
+						if(log.isInfoEnabled()){
+							log.info("Report weekly active but scheduled for day number: "+weekReportDay);
+						}
+					}
+				}       
+				if (frequency.indexOf("monthly")>=0){
+					isMonthly = true;
+					int monthReportDay=ImsUtils.stringToInt(scheduledMonthDayRef,1);
+					if (monthReportDay==now.dayOfMonth().get()){
+							isValid=true;
+					}else{
+						if(log.isInfoEnabled()){
+							log.info("Report monthly active but scheduled for day number: "+monthReportDay);
+						}
+					}
+				}
          }
       }catch(SQLException e){
          log.error("generateReport error: "+e.getMessage());
