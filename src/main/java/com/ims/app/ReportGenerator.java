@@ -24,6 +24,7 @@ public class ReportGenerator{
     String name="";
     String lang="";
     String fromDate="";
+    String fromDateQuery="";
     String toDate="";
     int fromDayRef;
     int toDayRef;
@@ -63,6 +64,7 @@ public class ReportGenerator{
 						break;
 					case "-fromDate":
 						fromDate=args[i+1];
+						fromDateQuery = fromDate;
 						break;
 					case "-toDate":
 						toDate=args[i+1];
@@ -350,9 +352,11 @@ public class ReportGenerator{
                     String title =
                         (reportTitle.equals("")?"":reportTitle+" ")+
                         (namespaceName.equals("")?"":namespaceName+" ");
-                    String period=
-                        (fromDate.equals("")?"":fromDate+" to ")+
-                        (toDate.equals("")?"":toDate);
+                    String period="";
+                        if(!fromDateQuery.isEmpty()){
+                                period = (fromDate.equals("")?"":fromDate+" to ");
+                        }
+                        period = period + (toDate.equals("")?"":toDate);
                     ExcelPOI excel = new ExcelPOI(path, reportFileName, reportTemplate, props, title, period, matrix, rowFrom, rowTo);
                     if(excel.createReport(result)){
                         try{
