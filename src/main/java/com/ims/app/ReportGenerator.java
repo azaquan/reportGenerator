@@ -26,6 +26,8 @@ public class ReportGenerator{
     String fromDate="";
     String fromDateQuery="";
     String toDate="";
+    String toDateQuery="";
+    DateTime repoDate=new DateTime().now();  
     int fromDayRef;
     int toDayRef;
     int fromMonthsRef;
@@ -68,6 +70,7 @@ public class ReportGenerator{
 						break;
 					case "-toDate":
 						toDate=args[i+1];
+						toDateQuery = toDate;
 						break;
 					case "-fromDayRef":
 						fromDayRef=Integer.parseInt(args[i+1]);
@@ -321,7 +324,9 @@ public class ReportGenerator{
                 log.info("- after all->"+reportQuery);
                 String newLine = System.getProperty("line.separator");
                 reportBodyText1 = reportBodyText1+newLine+newLine+"Description: "+reportDescription;
-                reportBodyText1=reportBodyText1+newLine+"From date: "+fromDate+newLine+newLine+"To date: "+toDate;
+                if(!fromDateQuery.isEmpty()){
+                    reportBodyText1=reportBodyText1+newLine+"From date: "+fromDate+newLine+"To date: "+toDate;
+                }
             }
             ResultSet result = DbUtils.getResultSet(conn,reportQuery);
             log.info(".  .  .  .  .  .  .  .  .  .  . final query to get -> "+reportQuery);
@@ -355,6 +360,9 @@ public class ReportGenerator{
                     String period="";
                         if(!fromDateQuery.isEmpty()){
                                 period = (fromDate.equals("")?"":fromDate+" to ");
+                        }
+                        if(toDateQuery.isEmpty()){
+                            toDate = fmt.print(repoDate);
                         }
                         period = period + (toDate.equals("")?"":toDate);
                     ExcelPOI excel = new ExcelPOI(path, reportFileName, reportTemplate, props, title, period, matrix, rowFrom, rowTo);
