@@ -35,6 +35,7 @@ public class ReportGenerator{
     String matrix;
     int rowFrom;
     int rowTo;
+    int weekReportDay;
     String xuser="";
     String namespace="";
     String company="";
@@ -47,6 +48,9 @@ public class ReportGenerator{
     String tempEmail="";
     boolean sendEmail=true;
     String reportQuery;
+	boolean isMonthly = false;
+	boolean isWeekly = false;
+	boolean isDaily = false;
 	
 	public ReportGenerator(String []args){
 		for(int i=0;i<args.length;i++){
@@ -254,6 +258,7 @@ public class ReportGenerator{
          	goAhead = isValidToGenerate(repoRef);
         }else{
          	goAhead=true;
+         	boolean test = isValidToGenerate(repoRef);
         }
         if(goAhead){
             String reportTemplate=repoRef.getString("template");
@@ -295,10 +300,18 @@ public class ReportGenerator{
             if(withFromDate){
                 DateTime startDate=new DateTime().now();
                 log.info("--- - startDate (now)->"+startDate);
-                startDate=startDate.plusMonths(fromMonthsRef);
-                log.info("--- - startDate (month)->"+startDate);
-                startDate=startDate.dayOfMonth().setCopy(fromDayRef);
-                log.info("--- - startDate- (day)>"+startDate);
+                log.info("--- - isWeekly->"+isWeekly);
+                log.info("--- - isMonthly->"+isMonthly);
+                if(isWeekly){
+                	startDate=startDate.minusDays(7);
+                	log.info("--- - startDate- (weekly)>"+startDate);
+                }
+                if(isMonthly){
+                	startDate=startDate.plusMonths(fromMonthsRef);
+                	startDate=startDate.dayOfMonth().setCopy(fromDayRef);
+                	log.info("--- - startDate- (montly)>"+startDate);
+                }
+                
                 DateTime endDate=new DateTime().now();  
                 log.info("--- - endDate (now)>"+endDate);
                 endDate=endDate.plusMonths(toMonthRef);
@@ -412,25 +425,22 @@ public class ReportGenerator{
         }
 	}
 
-	public static boolean isValidToGenerate(ResultSet record){
+	public boolean isValidToGenerate(ResultSet record){
 	    boolean isValid=false;
 	    try{
             String frequency=record.getString("frequency");
-            boolean isMonthly = false;
-            boolean isWeekly = false;
-            boolean isDaily = false;
             String scheduledMonthDayRef=record.getString("scheduledMonthDayRef");
             String scheduledWeekDayRef =record.getString("scheduledWeekDayRef");
 			DateTime now = new DateTime();
 			log.info("@@ today->"+now.dayOfMonth().get());
 			if(frequency!=null){
-				if (frequency.indexOf("daily")>=0){
+				if (frequency.contains("daily")){
 					isDaily = true;
 					isValid=true;
 				}
-				if (frequency.indexOf("weekly")>=0){
+				if (frequency.contains("weekly")){
 					isWeekly = true;
-					int weekReportDay=ImsUtils.stringToInt(scheduledWeekDayRef,1);
+					weekReportDay=ImsUtils.stringToInt(scheduledWeekDayRef,1);
 					if (weekReportDay==now.dayOfWeek().get()){
 						isValid=true;
 					}else{
@@ -439,7 +449,7 @@ public class ReportGenerator{
 						}
 					}
 				}       
-				if (frequency.indexOf("monthly")>=0){
+				if (frequency.contains("monthly")){
 					isMonthly = true;
 					int monthReportDay=ImsUtils.stringToInt(scheduledMonthDayRef,1);
 					if (monthReportDay==now.dayOfMonth().get()){
@@ -451,6 +461,8 @@ public class ReportGenerator{
 					}
 				}
 			}
+			log.info("@@ frequency->"+frequency);
+			log.info("@@ isWeekly->"+isWeekly);
         }catch(SQLException e){
             log.error("generateReport error: "+e.getMessage());
         }
