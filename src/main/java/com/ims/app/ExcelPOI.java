@@ -21,7 +21,8 @@ import org.apache.poi.hssf.usermodel.*;
 import org.apache.poi.hssf.util.HSSFColor;
 
 import java.math.BigDecimal;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 public class ExcelPOI{
    private String path;
@@ -30,7 +31,7 @@ public class ExcelPOI{
    private Properties props;
    private String title;
    private String period;
-   private static final Logger logger = Logger.getLogger(ReportGenerator.class);
+   private static final Logger LOGGER = LogManager.getLogger(ExcelPOI.class);
    private String nullString = null;
    private String matrix="";
    private int rowFrom;
@@ -68,6 +69,7 @@ public class ExcelPOI{
       	period = reportPeriod;
       }
       matrix=reportMatrix;
+      LOGGER.debug("@@@@@@ - matrix={}",reportMatrix);
       rowFrom=reportrowFrom;
       rowTo=reportrowTo;
    }
@@ -89,9 +91,10 @@ public class ExcelPOI{
             sheet = workbook.getSheetAt(0);
             cols=result.getMetaData().getColumnCount();
             totalCells=new boolean[cols];
-				if(logger.isDebugEnabled()){
-					logger.debug("@@ - cols="+cols);
+				if(LOGGER.isDebugEnabled()){
+					LOGGER.debug("@@ - cols=",cols);
 				}
+
 				CellStyle cellStyle = workbook.createCellStyle();
 				org.apache.poi.ss.usermodel.Font font = workbook.createFont();
 				font.setFontHeightInPoints((short)12);
@@ -140,18 +143,16 @@ public class ExcelPOI{
 				boolean done = false;
 				boolean doTotals = false;
 				if(!matrix.equals("") && rowFrom>0 && rowTo>=rowFrom){
-					logger.debug("@@ - feeding matrix mode ------------------------------@@");
+					LOGGER.debug("@@ - feeding matrix mode ------------------------------@@");
 					if (getDataIntoMatrixSheet()) done=true;
 				}else{
-					logger.debug("@@ - feeding regular mode ------------------------------@@");
+					LOGGER.debug("@@ - feeding regular mode ------------------------------@@");
 					if (getDataIntoSheet()){
 						done=true;
 						doTotals=true;
 					}
 				}
-				if(logger.isDebugEnabled()){
-					logger.debug("-eof-");
-				}
+				LOGGER.debug("-eof-");
 				if(done){
 					if(doTotals){
 						row = sheet.createRow(r);
@@ -173,21 +174,23 @@ public class ExcelPOI{
 					}
 					Header header = sheet.getHeader();
 					header.setCenter(title);
-					logger.debug("- title - "+title);
+					if(LOGGER.isDebugEnabled()){
+						LOGGER.debug("- title - {}",title);
+					}
 					workbook.setSheetName(0, title);   
 					FileOutputStream fileOut = new FileOutputStream(outboxPath+reportName);
-					logger.debug("- fileOut - "+fileOut);
+					if(LOGGER.isDebugEnabled()){
+						LOGGER.debug("- fileOut - {}",fileOut);
+					}
 					workbook.write(fileOut);
 					fileOut.close();
 					created=true;
 				}
          }
       }catch(Exception e){
-          logger.error("ExcelPoi.createReport: "+e);
+          LOGGER.error("ExcelPoi.createReport: {}",e);
       }
-	   if(logger.isDebugEnabled()){
-	   	logger.debug("createReport() has been executed!");
-	   }
+	  LOGGER.debug("createReport() has been executed!");
       return created;
    }
    
@@ -197,14 +200,18 @@ public class ExcelPOI{
    int matrixCursor=0;
   	try{
 			String[] guide = matrix.split(",");
-			logger.debug("- - - - - - - - -      ------------ matrix->"+matrix);
+			if(LOGGER.isDebugEnabled()){
+				LOGGER.debug("- - - - - - - - -      ------------ matrix->{}",matrix);
+			}
 			int refCol = 0;
 			int targetCol = 0;
 			int sourceColumn = 1;
 			for(int i=0;i<guide.length-1;i++){
 				if(guide[i].equals(String.valueOf(sourceColumn))){
 					refCol=i;
-					logger.debug("- - - - - - - - -      ------------ refCol->"+refCol);
+					if(LOGGER.isDebugEnabled()){
+						LOGGER.debug("- - - - - - - - -      ------------ refCol->{}",refCol);
+					}
 				}
 			}
 			while(result.next()){
@@ -222,18 +229,24 @@ public class ExcelPOI{
 										if (cc.getCellType()==Cell.CELL_TYPE_STRING){
 											String cellRef=cc.getStringCellValue();
 											cellRef=cellRef.toUpperCase().trim();
-											//logger.debug("- - - - - - - - - --sourceColumn->"+sourceColumn);
+											if(LOGGER.isDebugEnabled()){
+												LOGGER.debug("- - - - - - - - - --sourceColumn->{}",sourceColumn);
+											}
 											String dataRef=result.getString(sourceColumn);
 											dataRef=dataRef.toUpperCase().trim();
 											if (cellRef.equals(dataRef)){ //when both references match, the data can be written down
-												logger.debug("- - - - - - - - - --cellRef/dataRef-->"+cellRef+"/"+dataRef+" "+ cellRef.equals(dataRef));
+												if(LOGGER.isDebugEnabled()){
+													LOGGER.debug("- - - - - - - - - --cellRef/dataRef-->"+cellRef+"/"+dataRef+" "+ cellRef.equals(dataRef));
+												}
 												int dataCol;
 												for(int m=1;m<guide.length ;m++){ //iterates within the matrix array 
 													try{
 														Cell ccc = rr.getCell(m);
 														dataCol=Integer.parseInt(guide[m]);
 														if(dataCol>0){ // it does not take zero because it is the ref source col
-															logger.debug("- - - - - - - - - ---dataCol:"+dataCol);
+															if(LOGGER.isDebugEnabled()){
+																LOGGER.debug("- - - - - - - - - ---dataCol:{}",dataCol);
+															}
 															stampValue(ccc, dataCol);
 															passed = true;
 														}
@@ -253,7 +266,7 @@ public class ExcelPOI{
 			}
 			HSSFFormulaEvaluator.evaluateAllFormulaCells(workbook);
 		}catch(Exception e){
-          logger.error("ExcelPoi.createReport: "+e);
+          LOGGER.error("ExcelPoi.createReport: {}",e);
           passed = false;
       }
       return passed;
@@ -263,22 +276,22 @@ public class ExcelPOI{
    	boolean passed = false;
    	try{
 			while(result.next()){
-				if(logger.isDebugEnabled()){
-					logger.debug("- - - - - - - - -  row="+r);
+				if(LOGGER.isDebugEnabled()){
+					LOGGER.debug("-- row={}",r);
 				}
 				row = sheet.createRow(r);
 				for(int i=0;i<=cols-1;i++){
 					cell = row.createCell(i);
 					String dataType = result.getMetaData().getColumnTypeName(i+1);
-					if(logger.isDebugEnabled()){
-						logger.debug( "column->"+result.getMetaData().getColumnName(i+1)+"/" +dataType);
+					if(LOGGER.isDebugEnabled()){
+						LOGGER.debug( "column->"+result.getMetaData().getColumnName(i+1)+"/" +dataType);
 					}
 					switch(dataType){
 						case "bit":
 							cell.setCellValue(result.getBoolean(i+1));
 							if(!result.wasNull()){
-								if(logger.isDebugEnabled()){
-									logger.debug("bit->"+result.getBoolean(i+1));
+								if(LOGGER.isDebugEnabled()){
+									LOGGER.debug("bit->"+result.getBoolean(i+1));
 								}
 							}
 							break;
@@ -289,8 +302,8 @@ public class ExcelPOI{
 						case "smallint":
 							cell.setCellValue(result.getInt(i+1));
 							if(!result.wasNull()){
-								if(logger.isDebugEnabled()){
-									logger.debug("int family->"+result.getInt(i+1));
+								if(LOGGER.isDebugEnabled()){
+									LOGGER.debug("int family->"+result.getInt(i+1));
 								}
 							}
 							break;
@@ -301,8 +314,8 @@ public class ExcelPOI{
 						case "double":
 							cell.setCellValue(result.getDouble(i+1));
 							if(!result.wasNull()){
-								if(logger.isDebugEnabled()){
-									logger.debug("double family->"+result.getDouble(i+1));
+								if(LOGGER.isDebugEnabled()){
+									LOGGER.debug("double family->"+result.getDouble(i+1));
 								}
 							}
 							break;
@@ -316,8 +329,8 @@ public class ExcelPOI{
 								}else{
 									Double doubleResult = bigResult.doubleValue();
 									cell.setCellValue(doubleResult);
-									if(logger.isDebugEnabled()){
-										logger.debug("money->"+doubleResult);
+									if(LOGGER.isDebugEnabled()){
+										LOGGER.debug("money->"+doubleResult);
 									}
 								}
 							}
@@ -330,8 +343,8 @@ public class ExcelPOI{
 							if(result.wasNull()){
 							}else{
 								if (timestamp != null){
-									if(logger.isDebugEnabled()){
-										logger.debug("date family->"+result.getDate(i+1));
+									if(LOGGER.isDebugEnabled()){
+										LOGGER.debug("date family->"+result.getDate(i+1));
 									}
 									cell.setCellValue(result.getDate(i+1));
 								}
@@ -341,8 +354,8 @@ public class ExcelPOI{
 						case "char":
 						case "varchar":
 							String textValue=result.getString(i+1);
-							if(logger.isDebugEnabled()){
-								logger.debug("string----------------->"+textValue);
+							if(LOGGER.isDebugEnabled()){
+								LOGGER.debug("string----------------->"+textValue);
 							}
 							if(result.wasNull()){
 							}else{
@@ -356,8 +369,8 @@ public class ExcelPOI{
 							Object o = (result.getObject(i+1));
 							if(!result.wasNull()){
 								cell.setCellValue("Process Error");
-								if(logger.isDebugEnabled()){
-									logger.debug("object->"+result.getObject(i+1));
+								if(LOGGER.isDebugEnabled()){
+									LOGGER.debug("object->"+result.getObject(i+1));
 								}
 							}
 					}
@@ -365,25 +378,26 @@ public class ExcelPOI{
 				r++;
 			}
 			passed = true;
+			LOGGER.debug("all data got into the sheet? {}",passed);
 		}catch(Exception e){
-          logger.error("ExcelPoi.createReport: "+e);
+         	LOGGER.error("ExcelPoi.createReport: {}",e);
       }
       return passed;
    }
    
    private void stampValue(Cell cell, int colPos){
-   	logger.debug("- - - - - - - - - STAMP");
+   	   LOGGER.info("- - - - - - - - - STAMP");
 			try{
 				String dataType = result.getMetaData().getColumnTypeName(colPos);
-				if(logger.isDebugEnabled()){
-					logger.debug( "column->"+result.getMetaData().getColumnName(colPos)+"/" +dataType);
+				if(LOGGER.isDebugEnabled()){
+					LOGGER.debug( "column->"+result.getMetaData().getColumnName(colPos)+"/" +dataType);
 				}
 				switch(dataType){
 					case "bit":
 						cell.setCellValue(result.getBoolean(colPos));
 						if(!result.wasNull()){
-							if(logger.isDebugEnabled()){
-								logger.debug("bit->"+result.getBoolean(colPos));
+							if(LOGGER.isDebugEnabled()){
+								LOGGER.debug("bit->"+result.getBoolean(colPos));
 							}
 						}
 						break;
@@ -394,8 +408,8 @@ public class ExcelPOI{
 					case "smallint":
 						cell.setCellValue(result.getInt(colPos));
 						if(!result.wasNull()){
-							if(logger.isDebugEnabled()){
-								logger.debug("int family->"+result.getInt(colPos));
+							if(LOGGER.isDebugEnabled()){
+								LOGGER.debug("int family->"+result.getInt(colPos));
 							}
 						}
 						break;
@@ -406,8 +420,8 @@ public class ExcelPOI{
 					case "double":
 						cell.setCellValue(result.getDouble(colPos));
 						if(!result.wasNull()){
-							if(logger.isDebugEnabled()){
-								logger.debug("double family->"+result.getDouble(colPos));
+							if(LOGGER.isDebugEnabled()){
+								LOGGER.debug("double family->"+result.getDouble(colPos));
 							}
 						}
 						break;
@@ -421,8 +435,8 @@ public class ExcelPOI{
 							}else{
 								Double doubleResult = bigResult.doubleValue();
 								cell.setCellValue(doubleResult);
-								if(logger.isDebugEnabled()){
-									logger.debug("money->"+doubleResult);
+								if(LOGGER.isDebugEnabled()){
+									LOGGER.debug("money->"+doubleResult);
 								}
 							}
 						}
@@ -435,8 +449,8 @@ public class ExcelPOI{
 						if(result.wasNull()){
 						}else{
 							if (timestamp != null){
-								if(logger.isDebugEnabled()){
-									logger.debug("date family->"+result.getDate(colPos));
+								if(LOGGER.isDebugEnabled()){
+									LOGGER.debug("date family->"+result.getDate(colPos));
 								}
 								cell.setCellValue(result.getDate(colPos));
 							}
@@ -446,8 +460,8 @@ public class ExcelPOI{
 					case "char":
 					case "varchar":
 						String textValue=result.getString(colPos);
-						if(logger.isDebugEnabled()){
-							logger.debug("string----------------->"+textValue);
+						if(LOGGER.isDebugEnabled()){
+							LOGGER.debug("string----------------->{}",textValue);
 						}
 						if(result.wasNull()){
 						}else{
@@ -461,13 +475,13 @@ public class ExcelPOI{
 						Object o = (result.getObject(colPos));
 						if(!result.wasNull()){
 							cell.setCellValue("Process Error");
-							if(logger.isDebugEnabled()){
-								logger.debug("object->"+result.getObject(colPos));
+							if(LOGGER.isDebugEnabled()){
+								LOGGER.debug("object->"+result.getObject(colPos));
 							}
 						}
 				}
 		}catch(Exception e){
-          logger.error("ExcelPoi.stampValue: "+e);
+			LOGGER.error("ExcelPoi.stampValue: {}",e);
       }
    }
 }

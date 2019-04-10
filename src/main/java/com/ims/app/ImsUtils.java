@@ -24,7 +24,7 @@ public class ImsUtils{
       FileInputStream input = null;
       String fileName = "reportGenerator.properties";
       try{
-         input = new FileInputStream(path+"sources/"+fileName);
+         input = new FileInputStream(path+"resources/"+fileName);
          if(input==null){
             System.out.println("Sorry, unable to find "+fileName);
             return props;
