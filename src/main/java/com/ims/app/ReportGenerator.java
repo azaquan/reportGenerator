@@ -29,6 +29,7 @@ public class ReportGenerator{
     String fromDateQuery="";
     String toDate="";
     String toDateQuery="";
+    String scheduledWeekDayRef="";
     DateTime repoDate=new DateTime().now();  
     int fromDayRef;
     int toDayRef;
@@ -53,6 +54,7 @@ public class ReportGenerator{
 	boolean isMonthly = false;
 	boolean isWeekly = false;
 	boolean isDaily = false;
+	boolean fakeAuto = false;
 	DateTime now = new DateTime();
 	DateTimeFormatter fmtTime=DateTimeFormat.forPattern("yyyy-MM-dd_HH-mm-ss");
 	DateTimeFormatter fmt=DateTimeFormat.forPattern("yyyy-MM-dd");	
@@ -75,6 +77,9 @@ public class ReportGenerator{
 					case "-name":
 						name=args[i+1];
 						LOGGER.debug("@@@@@ args-> {}",args.length);
+					case "-fakeAuto":
+						fakeAuto=true;
+						LOGGER.debug("@@@@@ fakeAuto=true");						
 					case "-sendEmail":
 						String sendEmailAnswer =args[i+1];
 						if(sendEmailAnswer.toLowerCase().equals("no")){
@@ -175,10 +180,14 @@ public class ReportGenerator{
 			LOGGER.debug("@@@@@ args-> {}",args.length);
 		}
 		ReportGenerator report = new ReportGenerator(args);
-		if(args.length>0){
-			report.doOnDemand(args);
+		if(report.fakeAuto){
+			report.doFakeAuto();
 		}else{
-			report.reviewReportList();
+			if(args.length>0){
+				report.doOnDemand(args);
+			}else{
+				report.reviewReportList();
+			}
 		}
 		LOGGER.info("ReportGenerator END");
 	}
@@ -234,32 +243,66 @@ public class ReportGenerator{
 
 	}
 
+	public void doFakeAuto(){
+        if(conn==null){
+            LOGGER.error("Wrong connection with the DB");
+        }else{
+        	String query = "select * from reportGenerator where reportName = '"+ name+"'";
+        	ResultSet result = DbUtils.getResultSet(conn,query);
+			if(result!=null){
+				try{
+					result.next();
+					if(result.getBoolean("active")){
+						reportQuery=result.getString("query");
+						if(!reportQuery.isEmpty()){
+							LOGGER.info(".");
+							LOGGER.info("Report:{}", name); 
+							String email="";
+							if (!sendEmail){
+								email="none";
+							}
+							generateReport(result,true,reportQuery,email);
+						}
+					}else{
+						LOGGER.info("Report is inactive.");
+					}
+				}catch(SQLException e){
+					LOGGER.error("Error when getting record from the table");
+					LOGGER.error("from server: ", e.getMessage());
+				}
+			}
+		}
+        LOGGER.debug("reviewReportList() has been executed!");
+	}	
+	
 	public void reviewReportList(){
 		LOGGER.info("ReportGenerator START - - - - - - - - - - - - - - - - - - - - - ");
         if(conn==null){
             LOGGER.error("Wrong connection with the DB");
         }else{
-        String query = "select * from reportGenerator";
-        ResultSet result = DbUtils.getResultSet(conn,query);
-        if(result!=null){
-            try{
-                while(result.next()){
-                    if(result.getBoolean("active")){
-                        reportQuery=result.getString("query");
-                        if(!reportQuery.isEmpty()){
-                            name=result.getString("reportName");
-                            LOGGER.info(".");
-                            LOGGER.info("Report:{}", name);  
-                            generateReport(result,true,reportQuery,"");
-                        }
-                    }
-                }
-            }catch(SQLException e){
-            	LOGGER.error("Error when iterating with the table");
-            	LOGGER.error("from server: ", e.getMessage());
-            }
-        }
-    }
+			String query = "select * from reportGenerator";
+			ResultSet result = DbUtils.getResultSet(conn,query);
+			if(result!=null){
+				try{
+					while(result.next()){
+						if(result.getBoolean("active")){
+							reportQuery=result.getString("query");
+							if(!reportQuery.isEmpty()){
+								name=result.getString("reportName");
+								LOGGER.info(".");
+								LOGGER.info("Report:{}", name);  
+								generateReport(result,true,reportQuery,"");
+							}
+						}else{
+							LOGGER.info("Report is inactive.");
+						}
+					}
+				}catch(SQLException e){
+					LOGGER.error("Error when iterating with the table");
+					LOGGER.error("from server: ", e.getMessage());
+				}
+			}
+		}
         LOGGER.debug("reviewReportList() has been executed!");
 	}
 
@@ -278,10 +321,13 @@ public class ReportGenerator{
         if(isAutomatic){
          	goAhead = isValid;
         }
+        if(fakeAuto){
+         	goAhead = true;
+        }        
         if(goAhead){
         	LOGGER.debug("goAhead=true");
             String reportTemplate=repoRef.getString("template");
-            LOGGER.info("--- - template={}", reportTemplate);
+            LOGGER.info("--- DB- template={}", reportTemplate);
             String reportUserId=repoRef.getString("userId");
             String reportRecipients=repoRef.getString("receipients");
             if (!email.equals("")){
@@ -289,60 +335,66 @@ public class ReportGenerator{
             }
             String reportDescription=repoRef.getString("description");
             String reportTitle=repoRef.getString("title");
-            LOGGER.info("--- - title={}", reportTitle);
+            LOGGER.info("--- DB- title={}", reportTitle);
             String reportBodyText1=repoRef.getString("bodyText1");
             matrix = repoRef.getString("matrix");
             if(repoRef.wasNull()){
                 matrix = "";
             }
-            LOGGER.info("--- - matrix={}", matrix);            
+            LOGGER.info("--- DB- matrix={}", matrix);            
 			rowFrom = repoRef.getInt("rowFrom");
-			LOGGER.debug("--- - rowFrom->{}", rowFrom);
+			LOGGER.debug("--- DB- rowFrom->{}", rowFrom);
 			rowTo = repoRef.getInt("rowTo");
-			LOGGER.debug("--- - rowTo->{}", rowTo);
+			LOGGER.debug("--- DB- rowTo->{}", rowTo);
 			if(isAutomatic){
 				if(fromDayRef==0){
 					fromDayRef=repoRef.getInt("fromDayRef");
 					if(LOGGER.isDebugEnabled()){
-						LOGGER.debug("--- - fromDayRef->", Integer.toString(fromDayRef));
+						LOGGER.debug("--- DB- fromDayRef->{}", Integer.toString(fromDayRef));
 					}
 				}
 				if(toDayRef==0){
 					toDayRef=repoRef.getInt("toDayRef");
 					if(LOGGER.isDebugEnabled()){
-						LOGGER.debug("--- - toDayRef->", Integer.toString(toDayRef));
+						LOGGER.debug("--- DB- toDayRef->{}", Integer.toString(toDayRef));
 					}
 				}
 				if(fromMonthsRef==0){
 					fromMonthsRef=repoRef.getInt("fromMonthRef");
 					if(LOGGER.isDebugEnabled()){
-						LOGGER.debug("--- - fromMonthsRef->", Integer.toString(fromMonthsRef));
+						LOGGER.debug("--- DB- fromMonthsRef->{}", Integer.toString(fromMonthsRef));
 					}
 				}
 				if(toMonthRef==0){
 					toMonthRef=repoRef.getInt("toMonthRef");
 					if(LOGGER.isDebugEnabled()){
-						LOGGER.debug("--- - toMonthRef->", Integer.toString(toMonthRef));
+						LOGGER.debug("--- DB- toMonthRef->{}", Integer.toString(toMonthRef));
 					}
 				}
 				boolean withFromDate=false;
 				if (fromDayRef>0){
 					withFromDate=true;
 					if(LOGGER.isDebugEnabled()){
-						LOGGER.debug("--- - withFromDate->true");
+						LOGGER.debug("--- DB- withFromDate->true");
 					}
 				}
 				
 				if(withFromDate){
 					DateTime nowDate=new DateTime().now();
 					DateTime startDate=new DateTime().now();
+					DateTime endDate=new DateTime().now();
 					if(LOGGER.isDebugEnabled()){
 						LOGGER.debug("--- - nowDate (now)->{}",nowDate);
 						LOGGER.debug("--- - isWeekly->{}",isWeekly);
 						LOGGER.debug("--- - isMonthly-{}>",isMonthly);
 					}
 					if(isWeekly){
-						startDate=nowDate.minusDays(7);
+						int extraDays = 0;
+						if(scheduledWeekDayRef!=nowDate.dayOfWeek().getAsText()){
+							extraDays = nowDate.dayOfWeek().get();
+						}
+						startDate=nowDate.minusDays(7+extraDays);
+					
 						if(LOGGER.isDebugEnabled()){
 							LOGGER.debug("--- - startDate- (weekly)>{}", startDate);
 						}
@@ -354,23 +406,32 @@ public class ReportGenerator{
 						startDate=startDate.dayOfMonth().setCopy(fromDayRef);
 						LOGGER.debug("--- - startDate- after-calculations>{}: {}", startDate);
 					}
-					
-					DateTime endDate=new DateTime().now();  
-					if(LOGGER.isDebugEnabled()){
-						LOGGER.debug("--- - endDate (now)>{}", endDate);
-					}
-					endDate=endDate.plusMonths(toMonthRef);
-					if(LOGGER.isDebugEnabled()){
-						LOGGER.debug("--- - endDate (month)>{}", endDate);
-					}                
-					if(toDayRef==99){
-						endDate=endDate.dayOfMonth().setCopy(endDate.dayOfMonth().getMaximumValue());
+										  
+					if(isWeekly){
+						endDate=startDate.plusDays(6);
+						toDateQuery=fmt.print(endDate);
+						if(LOGGER.isDebugEnabled()){
+							LOGGER.debug("--- - endDate (for weekly)>{}", endDate);
+						}						
 					}else{
-						endDate=endDate.dayOfMonth().setCopy(toDayRef);
+						if(LOGGER.isDebugEnabled()){
+							LOGGER.debug("--- - endDate (now)>{}", endDate);
+						}
+						if(toMonthRef!=0){
+							endDate=endDate.plusMonths(toMonthRef);
+						}
+						if(LOGGER.isDebugEnabled()){
+							LOGGER.debug("--- - endDate (month)>{}", endDate);
+						}                
+						if(toDayRef==99){
+							endDate=endDate.dayOfMonth().setCopy(endDate.dayOfMonth().getMaximumValue());
+						}else{
+							endDate=endDate.dayOfMonth().setCopy(toDayRef);
+						}
+						if(LOGGER.isDebugEnabled()){
+							LOGGER.debug("--- - endDate (day) ->{}", endDate);
+						}               
 					}
-					if(LOGGER.isDebugEnabled()){
-						LOGGER.debug("--- - endDate (day) ->{}", endDate);
-					}                  
 	
 					fromDate = fmt.print(startDate);
 					fromDateQuery = fromDate;
@@ -378,7 +439,7 @@ public class ReportGenerator{
 					
 					if(LOGGER.isDebugEnabled()){
 						LOGGER.debug("--- - fromDate ->{}", fromDate);
-					}                     
+					}                     					
 					toDate = fmt.print(endDate);
 					toDate = toDate+" 23:59:59.999";
 					if(LOGGER.isDebugEnabled()){
@@ -434,11 +495,13 @@ public class ReportGenerator{
                         (namespaceName.equals("")?"":namespaceName+" ");
                     LOGGER.info("...............title:{}",title);
                     String period="";
+                    LOGGER.info("...............fromDateQuery:{}",fromDateQuery);
                         if(fromDateQuery.isEmpty()){
                         	period = "xx-xx-xx to";
                         }else{
                             period = (fromDate.equals("")?"":fromDate+" to ");
                         }
+					LOGGER.info("...............toDateQuery:{}",toDateQuery);                        
                         if(toDateQuery.isEmpty()){
                             toDate = fmt.print(repoDate);
                         }
@@ -489,7 +552,7 @@ public class ReportGenerator{
             String frequency=record.getString("frequency");
             LOGGER.debug("...frequency: {}",frequency);
             String scheduledMonthDayRef=record.getString("scheduledMonthDayRef");
-            String scheduledWeekDayRef =record.getString("scheduledWeekDayRef");
+            scheduledWeekDayRef =record.getString("scheduledWeekDayRef");
 			isMonthly = false;
 			isWeekly = false;
 			isDaily = false;
@@ -504,7 +567,11 @@ public class ReportGenerator{
 					if (weekReportDay==now.dayOfWeek().get()){
 						isValid=true;
 					}else{
-						LOGGER.debug("Report weekly active but scheduled for day number: {}",weekReportDay);
+						if(fakeAuto){
+							isValid=true;
+						}else{
+							LOGGER.debug("Report weekly active but scheduled for day number: {}",weekReportDay);
+						}
 					}
 				}       
 				if (frequency.contains("monthly")){
