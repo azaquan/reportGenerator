@@ -92,10 +92,20 @@ public class ImsUtils{
 			String port = map.get("port");
 			String pass = map.get("pass");
 			Properties emailProps = System.getProperties();
+			
+			emailProps.put("mail.debug", "true");
+
+			emailProps.put("mail.transport.protocol", "smtp");
+
+			emailProps.put("mail.smtp.auth", "true");
+			
 			emailProps.put("mail.smtp.host", host);	
 			emailProps.put("mail.from", from);
 			emailProps.put("mail.smtp.starttls.enable", "true");
 			emailProps.put("mail.smtp.port", port);
+			//emailProps.put("mail.smtp.ssl.trust", host);
+			emailProps.put("mail.smtp.ssl.protocols", "TLSv1.1 TLSv1.2");
+			
 			emailProps.setProperty("mail.debug", "false");
 			Session session = Session.getInstance(emailProps, null);
 			try {
